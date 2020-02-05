@@ -9,11 +9,36 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+### Ideas for graphs
+
+- Number of birds banded and recaps per year / total 
+- Number of species / year
+- Number of birds banded / species banded
+- Number of birds banded with colors for species / families? - Need to put in families and orders but should be easy enough
+- Capture rate? Number / net hour
+- Check any change in weight / wing size over time within species
+
+### Ideas for dashboards
+
+- Could do big graph with number of birds banded per year, then you click and see # orders, families, species
+- Could drop down menu of species (family, order) and see number banded per year / per some standardized effort and could allow to overlay on top of each other
+- Visual spatial data with recaps
+
+#### Questions for Will
+
+- What is time? 
+
+#### Other thoughts
+
+- Consider doing only 2010-2015
+
+
 ```{r}
 
 library(tidyverse)
 library(here)
 library(janitor)
+library(lubridate)
 
 ```
 
@@ -85,7 +110,55 @@ tins <- bind_rows(tins_2010,
 tins_tidy <- tins %>% 
   clean_names() %>% 
   mutate(wing = as.numeric(wing),
-         wght = as.numeric(wght))
+         wght = as.numeric(wght)) %>% 
+  mutate(date = lubridate::mdy(date),
+         year = lubridate::year(date),
+         month = lubridate::month(date),
+         doy = lubridate::yday(date)) %>% 
+  filter(!year == "2003")
+
+summary(tins_tidy)
 
 ```
+
+```{r}
+
+# Banding effort over time
+
+ggplot(tins_tidy, aes(x = year)) + 
+  geom_histogram(color = "grey80",
+                 fill = "indianred4",
+                 bins = 10) + 
+  scale_x_continuous(breaks = seq(2010, 2019, by = 1)) + 
+  labs(x = "Year",
+       y = "Birds Banded") +
+  theme_minimal() 
+
+```
+
+```{r}
+
+# Summarize data
+
+spec_summary <- tins_tidy %>% 
+  group_by(year, spec) %>% 
+  summarize(count = n())
+
+ggplot(spec_summary, aes(x = year)) + 
+  geom_histogram(color = "grey80",
+                 fill = "indianred4",
+                 bins = 10) + 
+  scale_x_continuous(breaks = seq(2010, 2019, by = 1)) + 
+  labs(x = "Year",
+       y = "Species Banded") +
+  theme_minimal() 
+
+spec_year_summary <- spec_summary %>% 
+  group_by(year) %>% 
+  summarize(no_spec = n())
+
+spec_year_summary
+
+```
+
 
