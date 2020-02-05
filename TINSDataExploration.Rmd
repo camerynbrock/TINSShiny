@@ -6,7 +6,9 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
 ```
 
 ### Ideas for graphs
@@ -39,56 +41,62 @@ library(tidyverse)
 library(here)
 library(janitor)
 library(lubridate)
+library(kableExtra)
 
 ```
 
-```{r}
-
+```{r, include = FALSE}
 # Read in and clean up data to combine separate year files to one df
 
-tins_2010 <- read_csv(here("RawData", "2010.csv"), 
+tins_2010 <- read_csv(here::here("RawData", "2010.csv"), 
                       col_types = cols(.default = "c")) %>%  
   select(-c(29, 30, 32)) %>% 
   head(212) 
 
-tins_2011 <- read_csv(here("RawData", "2011.csv"), 
+tins_2011 <- read_csv(here::here("RawData", "2011.csv"), 
                       col_types = cols(.default = "c"))%>% 
   select(-c(29, 30, 32)) 
 
-tins_2012 <- read_csv(here("RawData", "2012.csv"), 
+tins_2012 <- read_csv(here::here("RawData", "2012.csv"), 
                       col_types = cols(.default = "c"))
 
-tins_2013 <- read_csv(here("RawData", "2013.csv"), 
+tins_2013 <- read_csv(here::here("RawData", "2013.csv"), 
                       col_types = cols(.default = "c"))
  
-tins_2014 <- read_csv(here("RawData", "2014.csv"), 
+tins_2014 <- read_csv(here::here("RawData", "2014.csv"), 
                       col_types = cols(.default = "c"))
  
-tins_2015 <- read_csv(here("RawData", "2015.csv"), 
+tins_2015 <- read_csv(here::here("RawData", "2015.csv"), 
                       col_types = cols(.default = "c")) %>% 
   select(-c(25:27)) %>% 
   rename("NOTE?" = "Comment")
  
-tins_2016 <- read_csv(here("RawData", "2016.csv"), 
+tins_2016 <- read_csv(here::here("RawData", "2016.csv"), 
                       col_types = cols(.default = "c")) %>% 
   select(-c(25:27)) %>% 
   head(778) %>% 
   rename("NOTE?" = "Comment")
 
-tins_2017 <- read_csv(here("RawData", "2017.csv"), 
+tins_2017 <- read_csv(here::here("RawData", "2017.csv"), 
                       col_types = cols(.default = "c")) %>% 
   head(167) %>% 
   rename("NOTE?" = "Comment")
  
-tins_2018 <- read_csv(here("RawData", "2018.csv"), 
+tins_2018 <- read_csv(here::here("RawData", "2018.csv"), 
                       col_types = cols(.default = "c")) %>% 
   head(200) %>% 
   rename("NOTE?" = "Comment")
  
-tins_2019 <- read_csv(here("RawData", "2019.csv"), 
+tins_2019 <- read_csv(here::here("RawData", "2019.csv"), 
                       col_types = cols(.default = "c")) %>% 
   head(29) %>% 
   rename("NOTE?" = "Comment")
+```
+
+
+```{r}
+
+# bind all years
 
 tins <- bind_rows(tins_2010,
                   tins_2011,
@@ -117,8 +125,6 @@ tins_tidy <- tins %>%
          doy = lubridate::yday(date)) %>% 
   filter(!year == "2003")
 
-summary(tins_tidy)
-
 ```
 
 ```{r}
@@ -126,8 +132,8 @@ summary(tins_tidy)
 # Banding effort over time
 
 ggplot(tins_tidy, aes(x = year)) + 
-  geom_histogram(color = "grey80",
-                 fill = "indianred4",
+  geom_histogram(color = "grey90",
+                 fill = "lightblue3",
                  bins = 10) + 
   scale_x_continuous(breaks = seq(2010, 2019, by = 1)) + 
   labs(x = "Year",
@@ -145,19 +151,13 @@ spec_summary <- tins_tidy %>%
   summarize(count = n())
 
 ggplot(spec_summary, aes(x = year)) + 
-  geom_histogram(color = "grey80",
-                 fill = "indianred4",
+  geom_histogram(color = "grey90",
+                 fill = "lightblue3",
                  bins = 10) + 
   scale_x_continuous(breaks = seq(2010, 2019, by = 1)) + 
   labs(x = "Year",
        y = "Species Banded") +
   theme_minimal() 
-
-spec_year_summary <- spec_summary %>% 
-  group_by(year) %>% 
-  summarize(no_spec = n())
-
-spec_year_summary
 
 ```
 
