@@ -1,0 +1,65 @@
+---
+title: "TINS ShinyApp Data Exploration"
+author: "Cameryn Brock"
+date: "2/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(tidyverse)
+library(here)
+library(janitor)
+
+```
+
+```{r}
+
+# Read in and clean up data. Each year is a separate file. Will combine. 
+
+tins_2010 <- read_csv(here("RawData", "2010.csv")) %>%  
+  select(-c(29, 30, 32)) %>% 
+  head(212) 
+
+tins_2011 <- read_csv(here("RawData", "2011.csv"))%>% 
+  select(-c(29, 30, 32)) 
+
+tins_2012 <- read_csv(here("RawData", "2012.csv"))
+
+tins_2013 <- read_csv(here("RawData", "2013.csv"))
+ 
+tins_2014 <- read_csv(here("RawData", "2014.csv"))
+ 
+tins_2015 <- read_csv(here("RawData", "2015.csv")) %>% 
+  select(-c(25:27))
+ 
+tins_2016 <- read_csv(here("RawData", "2016.csv")) %>% 
+  select(-c(25:27)) %>% 
+  head(778)
+
+tins_2017 <- read_csv(here("RawData", "2017.csv")) %>% 
+  head(167)
+ 
+tins_2018 <- read_csv(here("RawData", "2018.csv")) %>% 
+  head(200)
+ 
+tins_2019 <- read_csv(here("RawData", "2019.csv")) %>% 
+  head(29)
+
+tins <- bind_rows(tins_2010,
+                  tins_2011,
+                  tins_2012,
+                  tins_2013,
+                  tins_2014,
+                  tins_2015,
+                  tins_2016,
+                  tins_2017,
+                  tins_2018,
+                  tins_2019)
+
+```
+
