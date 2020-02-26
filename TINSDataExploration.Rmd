@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,
+knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE,
                       message = FALSE)
 ```
@@ -19,21 +19,13 @@ knitr::opts_chunk$set(echo = TRUE,
 - Number of birds banded with colors for species / families? - Need to put in families and orders but should be easy enough
 - Capture rate? Number / net hour
 - Check any change in weight / wing size over time within species
+- Toggle between birds per net hour and total (or show both graphs)
 
 ### Ideas for dashboards
 
 - Could do big graph with number of birds banded per year, then you click and see # orders, families, species
 - Could drop down menu of species (family, order) and see number banded per year / per some standardized effort and could allow to overlay on top of each other
 - Visual spatial data with recaps
-
-#### Questions for Will
-
-- What is time? 
-
-#### Other thoughts
-
-- Consider doing only 2010-2015
-
 
 ```{r}
 
@@ -42,10 +34,11 @@ library(here)
 library(janitor)
 library(lubridate)
 library(kableExtra)
+library(paletteer)
 
 ```
 
-```{r, include = FALSE}
+```{r}
 # Read in and clean up data to combine separate year files to one df
 
 tins_2010 <- read_csv(here::here("RawData", "2010.csv"), 
@@ -54,7 +47,7 @@ tins_2010 <- read_csv(here::here("RawData", "2010.csv"),
   head(212) 
 
 tins_2011 <- read_csv(here::here("RawData", "2011.csv"), 
-                      col_types = cols(.default = "c"))%>% 
+                      col_types = cols(.default = "c")) %>% 
   select(-c(29, 30, 32)) 
 
 tins_2012 <- read_csv(here::here("RawData", "2012.csv"), 
@@ -66,7 +59,7 @@ tins_2013 <- read_csv(here::here("RawData", "2013.csv"),
 tins_2014 <- read_csv(here::here("RawData", "2014.csv"), 
                       col_types = cols(.default = "c"))
  
-tins_2015 <- read_csv(here::here("RawData", "2015.csv"), 
+tins_2015 <- read_csv(here::here("RawData", "datafixed2015.csv"), 
                       col_types = cols(.default = "c")) %>% 
   select(-c(25:27)) %>% 
   rename("NOTE?" = "Comment")
@@ -91,10 +84,16 @@ tins_2019 <- read_csv(here::here("RawData", "2019.csv"),
                       col_types = cols(.default = "c")) %>% 
   head(29) %>% 
   rename("NOTE?" = "Comment")
+
+# Read in and clean up net hours data
+
+nethours_daily <- read_csv(here::here("RawData", "Nethours2010.csv")) %>% 
+  clean_names() %>% 
+  mutate(date = mdy(date))
+
 ```
 
-
-```{r}
+```{r, echo = TRUE} 
 
 # bind all years
 
@@ -109,10 +108,6 @@ tins <- bind_rows(tins_2010,
                   tins_2018,
                   tins_2019)
 
-```
-
-```{r}
-
 # Tidy tins
 
 tins_tidy <- tins %>% 
@@ -121,9 +116,133 @@ tins_tidy <- tins %>%
          wght = as.numeric(wght)) %>% 
   mutate(date = lubridate::mdy(date),
          year = lubridate::year(date),
-         month = lubridate::month(date),
-         doy = lubridate::yday(date)) %>% 
-  filter(!year == "2003")
+         month = lubridate::month(date)) %>% 
+  filter(!year == "2003") %>% 
+  mutate(spec = case_when(spec %in% c("AUWA", "MYWA", "YRWA") ~ "YRWA",
+                          spec %in% c("GWCS", "MWCS", "WCSP") ~ "WCSP",
+                          T ~ spec)) %>% 
+  filter(!spec == "NA")
+
+# Did the case_when to remove subspecies & only include species
+# Checked all species codes to ensure no more duplicates or typos
+# Some that weren't typical: 
+# We have RSFL instead of NOFL (red shafted flicker instead of northern)
+# We have WEFL (western flycatcher) - it has since been split into PSFL and COFL
+# We have YWAR for yellow warbler, looks like it is sometimes YEWA? 
+
+# Update sites and time of interest
+# Add taxonomy and viewer-friendly labels
+
+tins_roi <- tins_tidy %>% 
+  filter(loc %in% c("COEA", "BLCA", "POMA")) %>% 
+  filter(month %in% c(8, 9, 10)) %>% 
+  mutate(family = case_when(spec %in% c("STJA") ~ "Corvidae",
+                            spec %in% c("RSFL", "WISA", "DOWO",
+                                        "RBSA") ~ "Picidae",
+                            spec %in% c("SSHA", "COHA") ~ "Accipitridae",
+                            spec %in% c("AMRO", "HETH") ~ "Turdidae",
+                            spec %in% c("BHGR", "WETA", "LAZB") ~ "Cardinalidae",
+                            spec %in% c("GTTO", "WCSP", "SOSP", 
+                                        "SAVS", "LISP", "BRSP",
+                                        "ORJU", "SPTO", "GCSP",
+                                        "CHSP", "FOSP", "LASP") ~ "Passerellidae",
+                            spec %in% c("MOCH") ~ "Paridae",
+                            spec %in% c("OSFL", "WIFL", "GRFL", 
+                                        "WEWP", "DUFL", "HAFL",
+                                        "BLPH", "WEFL") ~ "Tyrannidae",
+                            spec %in% c("WAVI", "CAVI") ~ "Vireonidae",
+                            spec %in% c("BCHU", "RUHU", "ANHU") ~ "Trochilidae",
+                            spec %in% c("OCWA", "YWAR", "YRWA",
+                                        "MGWA", "WIWA", "BTYW",
+                                        "COYE", "NAWA", "HEWA") ~ "Parulidae", 
+                            spec %in% c("PUFI", "PISI", "EVGR",
+                                        "LEGO") ~ "Fringillidae",
+                            spec %in% c("RCKI", "GCKI") ~ "Regulidae",
+                            spec %in% c("RBNU", "PYNU") ~ "Sittidae",
+                            spec %in% c("BRCR") ~ "Certhiidae",
+                            spec %in% c("BUSH") ~"Aegithalidae",
+                            spec %in% c("BHCO", "BUOR") ~ "Icteridae",
+                            spec %in% c("MAWR", "HOWR", "BEWR") ~ "Troglodytidae",
+                            spec %in% c("BARS") ~ "Hirundinidae",
+                            spec %in% c("WISN") ~ "Scolopacidae",
+                            spec %in% c("MODO") ~ "Columbidae",
+                            spec %in% c("BGGN") ~ "Polioptilidae")) %>% 
+  mutate(family_label = case_when(family == "Corvidae" ~ "Corvidae: Crows, Jays, & Magpies",
+                                  family == "Picidae" ~ "Picidae: Woodpeckers",
+                                  family == "Accipitridae" ~ "Accipitridae: Hawks, Eagles, & Kites",
+                                  family == "Turdidae" ~ "Turdidae: Thrushes & Allies",
+                                  family == "Cardinalidae" ~ "Cardinalidae: Cardinals & Allies",
+                                  family == "Passerellidae" ~ "Passerellidae: Sparrows",
+                                  family == "Paridae" ~ "Paridae: Chickadees & Titmice",
+                                  family == "Tyrannidae" ~ "Tyrant Flycatchers",
+                                  family == "Vireonidae" ~ "Vireonidae: Vireos",
+                                  family == "Trochilidae" ~ "Trochilidae: Hummingbirds",
+                                  family == "Parulidae" ~ "Parulidae: Warblers",
+                                  family == "Fringillidae" ~ "Fringillidae: Finches & Allies",
+                                  family == "Regulidae" ~ "Regulidae: Kinglets",
+                                  family == "Sittidae" ~ "Sittidae: Nuthatches",
+                                  family == "Certhiidae" ~ "Certhiidae: Treecreepers",
+                                  family == "Aegithalidae" ~ "Aegithdalidae: Long-tailed Tits",
+                                  family == "Icteridae" ~ "Blackbirds & Orioles",
+                                  family == "Troglodytidae" ~ "Troglodytidae: Wrens",
+                                  family == "Hirundinidae" ~ "Hirundinidae: Swallows",
+                                  family == "Scolopacidae" ~ "Sandpipers & Allies",
+                                  family == "Columbidae" ~ "Columbidae: Pigeons & Doves",
+                                  family == "Polioptilidae" ~ "Polioptilidae: Gnatcatchers")) %>% 
+  mutate(spec_label = case_when(spec == "STJA" ~ "Steller's Jay",
+                                spec == "RSFL" ~ "Northern Flicker",
+                                spec == "WISA" ~ "Williamson's Sapsucker",
+                                spec == "DOWO" ~ "Downy Woodpecker",
+                                spec == "RBSA" ~ "Red-breasted Sapsucker",
+                                spec == "SSHA" ~ "Sharp-shinned Hawk",
+                                spec == "COHA" ~ "Cooper's Hawk",
+                                spec == "AMRO" ~ "American Robin",
+                                spec == "HETH" ~ "Hermit Thrush",
+                                spec == "BHGR" ~ "Black-headed Grosbeak",
+                                spec == "WETA" ~ "Western Tanager",
+                                spec == "LAZB" ~ "Lazuli Bunting",
+                                spec == "GTTO" ~ "Green-tailed Towhee",
+                                spec == "WCSP" ~ "White-crowned Sparrow",
+                                spec == "SOSP" ~ "Song Sparrow",
+                                spec == "SAVS" ~ "Savannah Sparrow",
+                                spec == "LISP" ~ "Lincoln's Sparrow",
+                                spec == "BRSP" ~ "Brewer's Sparrow",
+                                spec == "ORJU" ~ "Dark-eyed Junco",
+                                spec == "SPTO" ~ "Spotted Towhee",
+                                spec == "GCSP" ~ "Golden-crowned Sparrow",
+                                spec == "CHSP" ~ "Chipping Sparrow",
+                                spec == "FOSP" ~ "Fox Sparrow",
+                                spec == "LASP" ~ "Lark Sparrow",
+                                spec == "MOCH" ~ "Mountain Chickadee",
+                                spec == "OSFL" ~ "Olive-sided Flycatcher",
+                                spec == "WIFL" ~ "Willow Flycatcher",
+                                spec == "GRFL" ~ "Gray Flycatcher",
+                                spec == "WEWP" ~ "Western Wood-Pewee",
+                                spec == "DUFL" ~ "Dusky Flycatcher",
+                                spec == "HAFL" ~ "Hammond's Flycatcher",
+                                spec == "BLPH" ~ "Black Phoebe",
+                                spec == "WEFL" ~ "Pacific-slope Flycatcher", # Ask Will if this is ok
+                                spec == "WAVI" ~ "Warbling Vireo",
+                                spec == "CAVI" ~ "Cassin's Vireo",
+                                spec == "BCHU" ~ "Black-chinned Hummingbird",
+                                spec == "RUHU" ~ "Rufous Hummingbird",
+                                spec == "ANHU" ~ "Anna's Hummingbird",
+                                spec == "OCWA" ~ "Orange-crowned Warbler",
+                                spec == "YWAR" ~ "Yellow Warbler",
+                                spec == "YRWA" ~ "Yellow-rumped Warbler",
+                                spec == "MGWA" ~ "MacGillivray's Warbler",
+                                spec == "WIWA" ~ "Wilson's Warbler",
+                                spec == "BTYW" ~ "Black-throated Gray Warbler",
+                                spec == "COYE" ~ "Common Yellowthroat",
+                                spec == "" ~ "",
+                                spec == "" ~ "",
+                                spec == "" ~ "",
+                                spec == "" ~ "",
+                                spec == "" ~ "",
+                                spec == "" ~ "",
+                                ))
+  
+
 
 ```
 
@@ -131,7 +250,7 @@ tins_tidy <- tins %>%
 
 # Banding effort over time
 
-ggplot(tins_tidy, aes(x = year)) + 
+ggplot(tins_roi, aes(x = year)) + 
   geom_histogram(color = "grey90",
                  fill = "lightblue3",
                  bins = 10) + 
@@ -146,7 +265,7 @@ ggplot(tins_tidy, aes(x = year)) +
 
 # Summarize data
 
-spec_summary <- tins_tidy %>% 
+spec_summary <- tins_roi %>% 
   group_by(year, spec) %>% 
   summarize(count = n())
 
@@ -161,4 +280,103 @@ ggplot(spec_summary, aes(x = year)) +
 
 ```
 
+```{r}
+
+stats_table <- tins_roi %>% 
+  group_by(spec) %>% 
+  summarize(birds_banded = n()) %>% 
+  drop_na()
+
+stats_sum <- stats_table %>% 
+  summarize(birds_banded = sum(birds_banded))
+
+```
+
+```{r}
+
+# Try species per net hour per day day / year
+
+spec_day <- tins_roi %>% 
+  group_by(date, spec) %>% 
+  summarize(no_spec = n()) %>% 
+  group_by(date) %>% 
+  summarize(no_spec = n())
+
+spec_month <- tins_roi %>% 
+  group_by(year, month, spec) %>% 
+  summarize(no_spec = n()) %>% 
+  group_by(year, month) %>% 
+  summarize(no_spec = n())
+
+ind_day <- tins_roi %>% 
+  group_by(date) %>% 
+  summarize(no_ind = n())
+
+ind_month <- tins_roi %>% 
+  group_by(year, month) %>% 
+  summarize(no_ind = n())
+
+daily_per_hour <- 
+  bind_rows(ind_day, spec_day, nethours_daily) %>% 
+  select(date, no_ind, no_spec, total_nethours) %>% 
+  group_by(date) %>% 
+  summarize(no_ind = sum(no_ind, na.rm = TRUE),
+            no_spec = sum(no_spec, na.rm = TRUE),
+            nethours = sum(total_nethours, na.rm = TRUE)) %>% 
+  filter(!nethours == 0) %>% 
+  mutate(spec_per_hour = no_spec / nethours,
+         ind_per_hour = no_ind / nethours) %>%
+  mutate(year = year(date),
+         month = month(date, label = TRUE),
+         doy = lubridate::yday(date))
+
+nethours_monthly <- nethours_daily %>% 
+  mutate(month = month(date)) %>% 
+  filter(month %in% c(8, 9, 10)) %>% 
+  group_by(year, month) %>% 
+  summarize(nethours = sum(total_nethours, na.rm = TRUE))
+
+monthly_per_hour <- 
+  bind_rows(ind_month, spec_month, nethours_monthly) %>% 
+  select(month, no_ind, no_spec, nethours) %>% 
+  group_by(year, month) %>% 
+  summarize(no_ind = sum(no_ind, na.rm = TRUE),
+            no_spec = sum(no_spec, na.rm = TRUE),
+            nethours = sum(nethours, na.rm = TRUE)) %>% 
+  filter(!nethours == 0) %>% 
+  mutate(spec_per_hour = no_spec / nethours,
+         ind_per_hour = no_ind / nethours)
+
+ggplot(monthly_per_hour, aes(x = month,
+                          y = spec_per_hour,
+                          group = year)) +
+  geom_line(aes(color = year)) + 
+  scale_color_paletteer_c("grDevices::TealRose") + 
+  theme_minimal() +
+  labs(x = "Month",
+       y = "Average species per net hour",
+       color = "Year")
+
+ggplot(monthly_per_hour, aes(x = month,
+                          y = ind_per_hour,
+                          group = year)) +
+  geom_line(aes(color = year)) + 
+  scale_color_paletteer_c("grDevices::TealRose") + 
+  theme_minimal()+
+  labs(x = "Month",
+       y = "Average individuals per net hour",
+       color = "Year")
+
+ggplot(daily_per_hour, aes(x = doy,
+                          y = ind_per_hour)) +
+  geom_point(aes(color = year),
+             size = 3,
+             alpha = 0.75) +
+  scale_color_paletteer_c("grDevices::TealRose") + 
+  theme_minimal() +
+  labs(x = "Day of Year",
+       y = "Average individuals per net hour",
+       color = "Year")
+
+```
 
