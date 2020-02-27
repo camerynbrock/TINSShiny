@@ -185,7 +185,7 @@ tins_roi <- tins_tidy %>%
                                   family == "Sittidae" ~ "Sittidae: Nuthatches",
                                   family == "Certhiidae" ~ "Certhiidae: Treecreepers",
                                   family == "Aegithalidae" ~ "Aegithdalidae: Long-tailed Tits",
-                                  family == "Icteridae" ~ "Blackbirds & Orioles",
+                                  family == "Icteridae" ~ "Icteridae: Blackbirds & Orioles",
                                   family == "Troglodytidae" ~ "Troglodytidae: Wrens",
                                   family == "Hirundinidae" ~ "Hirundinidae: Swallows",
                                   family == "Scolopacidae" ~ "Sandpipers & Allies",
@@ -276,7 +276,7 @@ tins_nethours <- tins_roi %>%
 ```
 
 
-```{r, fig.height = 7, fig.width = 5} 
+```{r, fig.height = 10, fig.width = 8} 
 
 ggplot(tins_nethours, aes(x = year_week,
                           y = count_per_hour)) + 
@@ -296,7 +296,7 @@ ggplot(tins_nethours, aes(x = year_week,
 ```
 
 
-```{r, fig.height = 10, fig.width = 5} 
+```{r, fig.height = 16, fig.width = 8} 
 
 ggplot(tins_nethours, aes(x = year_week,
                           y = count_per_hour)) + 
@@ -308,7 +308,7 @@ ggplot(tins_nethours, aes(x = year_week,
               se = FALSE) +
   facet_wrap(~spec_label,
              scales = "free_y",
-             nrow = 14) + 
+             ncol = 4) + 
   theme_minimal() + 
   labs(x = "Year week",
        y = "Count per net hour")
@@ -318,25 +318,79 @@ ggplot(tins_nethours, aes(x = year_week,
 
 ```{r}
 
+# Seasonal data
+
+nethours_seasonal <- nethours_daily %>% 
+  mutate(month = month(date)) %>% 
+  filter(month %in% c(8, 9, 10)) %>% 
+  mutate(week = isoweek(date)) %>%
+  group_by(week) %>% 
+  summarize(nethours = sum(total_nethours, na.rm = TRUE))
+  
+
+tins_seasonal <- tins_roi %>% 
+  mutate(week = lubridate::isoweek(date)) %>% # Used isoweek() instead of week() because it matched with the weekyear used from tsibble
+  group_by(family, family_label, spec, spec_label, week) %>% 
+  summarize(count = n()) %>% 
+  inner_join(nethours_seasonal, by = "week") %>% 
+  mutate(count_per_hour = count / nethours)
+
+```
+
+```{r, fig.height = 10, fig.width = 8} 
+
+# Seasonal plots
+
+ggplot(tins_seasonal, aes(x = week,
+                          y = count_per_hour)) + 
+  geom_point(aes(color = family),
+             alpha = 0.75,
+             show.legend = FALSE) +
+  geom_smooth(size = 0.5,
+              color = "gray60",
+              se = FALSE) +
+  facet_wrap(~family, 
+             scales = "free_y",
+             nrow = 8) + 
+  theme_minimal() + 
+  labs(x = "Week (all years)",
+       y = "Count per net hour")
+
+```
+
+
+```{r, fig.height = 16, fig.width = 8} 
+
+ggplot(tins_seasonal, aes(x = week,
+                          y = count_per_hour)) + 
+  geom_point(aes(color = family),
+             alpha = 0.75,
+             show.legend = FALSE) +
+  geom_smooth(size = 0.5,
+              color = "gray60",
+              se = FALSE) +
+  facet_wrap(~spec_label,
+             scales = "free_y",
+             ncol = 4) + 
+  theme_minimal() + 
+  labs(x = "Week (all years)",
+       y = "Count per net hour") 
+
+```
+
+```{r}
+
 # Summarize data
 
 spec_summary <- tins_roi %>% 
   group_by(year, spec) %>% 
   summarize(count = n())
 
-stats_table <- tins_roi %>% 
-  group_by(spec) %>% 
-  summarize(birds_banded = n()) %>% 
-  drop_na()
-
-stats_sum <- stats_table %>% 
-  summarize(birds_banded = sum(birds_banded))
-
 ```
 
 ```{r}
 
-# Try species per net hour per day day / year
+# Species and individuals per day and per month (unsure if useful)
 
 spec_day <- tins_roi %>% 
   group_by(date, spec) %>% 
@@ -372,36 +426,19 @@ daily_per_hour <-
          month = month(date, label = TRUE),
          doy = lubridate::yday(date))
 
-monthly_per_hour <- 
-  bind_rows(ind_month, spec_month, nethours_monthly) %>% 
-  select(month, no_ind, no_spec, nethours) %>% 
-  group_by(year, month) %>% 
-  summarize(no_ind = sum(no_ind, na.rm = TRUE),
-            no_spec = sum(no_spec, na.rm = TRUE),
-            nethours = sum(nethours, na.rm = TRUE)) %>% 
-  filter(!nethours == 0) %>% 
-  mutate(spec_per_hour = no_spec / nethours,
-         ind_per_hour = no_ind / nethours)
 
-ggplot(monthly_per_hour, aes(x = month,
-                          y = spec_per_hour,
-                          group = year)) +
-  geom_line(aes(color = year)) + 
-  scale_color_paletteer_c("grDevices::TealRose") + 
-  theme_minimal() +
-  labs(x = "Month",
-       y = "Average species per net hour",
-       color = "Year")
+# monthly_per_hour <- 
+#  bind_rows(ind_month, spec_month, nethours_monthly) %>% 
+#  select(month, no_ind, no_spec, nethours) %>% 
+#  group_by(year, month) %>% 
+#  summarize(no_ind = sum(no_ind, na.rm = TRUE),
+#            no_spec = sum(no_spec, na.rm = TRUE),
+#            nethours = sum(nethours, na.rm = TRUE)) %>% 
+#  filter(!nethours == 0) %>% 
+#  mutate(spec_per_hour = no_spec / nethours,
+#         ind_per_hour = no_ind / nethours)
 
-ggplot(monthly_per_hour, aes(x = month,
-                          y = ind_per_hour,
-                          group = year)) +
-  geom_line(aes(color = year)) + 
-  scale_color_paletteer_c("grDevices::TealRose") + 
-  theme_minimal()+
-  labs(x = "Month",
-       y = "Average individuals per net hour",
-       color = "Year")
+## Need to fix because got rid of nethours_monthly to work with weeks instead. Should probably be consistent and do all this as weeks if I'm going to use it
 
 ggplot(daily_per_hour, aes(x = doy,
                           y = ind_per_hour)) +
@@ -434,7 +471,7 @@ ggplot(passerellidae, aes(x = doy,
   geom_point() + 
   theme_minimal()
 
-# Should be count per net hour
+# Should be count per net hour - change
 
 ```
 
