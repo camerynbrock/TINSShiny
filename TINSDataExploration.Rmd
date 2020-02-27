@@ -26,6 +26,7 @@ knitr::opts_chunk$set(echo = FALSE,
 - Could do big graph with number of birds banded per year, then you click and see # orders, families, species
 - Could drop down menu of species (family, order) and see number banded per year / per some standardized effort and could allow to overlay on top of each other
 - Visual spatial data with recaps
+- Consider making a web map of Tahoe banded species? 
 
 ```{r}
 
@@ -35,6 +36,7 @@ library(janitor)
 library(lubridate)
 library(kableExtra)
 library(paletteer)
+library(tsibble)
 
 ```
 
@@ -93,7 +95,7 @@ nethours_daily <- read_csv(here::here("RawData", "Nethours2010.csv")) %>%
 
 ```
 
-```{r, echo = TRUE} 
+```{r} 
 
 # bind all years
 
@@ -116,7 +118,8 @@ tins_tidy <- tins %>%
          wght = as.numeric(wght)) %>% 
   mutate(date = lubridate::mdy(date),
          year = lubridate::year(date),
-         month = lubridate::month(date)) %>% 
+         month = lubridate::month(date),
+         doy = lubridate::yday(date)) %>% 
   filter(!year == "2003") %>% 
   mutate(spec = case_when(spec %in% c("AUWA", "MYWA", "YRWA") ~ "YRWA",
                           spec %in% c("GWCS", "MWCS", "WCSP") ~ "WCSP",
@@ -254,26 +257,25 @@ tins_roi <- tins_tidy %>%
                                 spec == "BARS" ~ "Barn Swallow",
                                 spec == "WISN" ~ "Wilson's Snipe",
                                 spec == "MODO" ~ "Mourning Dove",
-                                spec == "BGGN" ~ "Blue-gray Gnatcatcher"))
-  
+                                spec == "BGGN" ~ "Blue-gray Gnatcatcher")) %>% 
+  mutate(year_month = yearmonth(date)) %>% 
+  select(family, family_label, spec, spec_label, date, loc, year_month, year, month, doy, note_2)
+
+tins_nethours <- tins_roi %>% 
+  group_by(family, family_label, spec, spec_label, year, year_month) %>% 
+  summarize(count = n())
+
+nethours_monthly <- nethours_daily %>% 
+  mutate(month = month(date)) %>% 
+  filter(month %in% c(8, 9, 10)) %>% 
+  mutate(year_month = yearmonth(date)) %>% 
+  group_by(year_month) %>% 
+  summarize(nethours = sum(total_nethours, na.rm = TRUE))
 
 
-```
-
-```{r}
-
-# Banding effort over time
-
-ggplot(tins_roi, aes(x = year)) + 
-  geom_histogram(color = "grey90",
-                 fill = "lightblue3",
-                 bins = 10) + 
-  scale_x_continuous(breaks = seq(2010, 2019, by = 1)) + 
-  labs(x = "Year",
-       y = "Birds Banded") +
-  theme_minimal() 
 
 ```
+
 
 ```{r}
 
@@ -282,19 +284,6 @@ ggplot(tins_roi, aes(x = year)) +
 spec_summary <- tins_roi %>% 
   group_by(year, spec) %>% 
   summarize(count = n())
-
-ggplot(spec_summary, aes(x = year)) + 
-  geom_histogram(color = "grey90",
-                 fill = "lightblue3",
-                 bins = 10) + 
-  scale_x_continuous(breaks = seq(2010, 2019, by = 1)) + 
-  labs(x = "Year",
-       y = "Species Banded") +
-  theme_minimal() 
-
-```
-
-```{r}
 
 stats_table <- tins_roi %>% 
   group_by(spec) %>% 
@@ -344,12 +333,6 @@ daily_per_hour <-
          month = month(date, label = TRUE),
          doy = lubridate::yday(date))
 
-nethours_monthly <- nethours_daily %>% 
-  mutate(month = month(date)) %>% 
-  filter(month %in% c(8, 9, 10)) %>% 
-  group_by(year, month) %>% 
-  summarize(nethours = sum(total_nethours, na.rm = TRUE))
-
 monthly_per_hour <- 
   bind_rows(ind_month, spec_month, nethours_monthly) %>% 
   select(month, no_ind, no_spec, nethours) %>% 
@@ -394,3 +377,46 @@ ggplot(daily_per_hour, aes(x = doy,
 
 ```
 
+```{r}
+
+# Let's look at species specific stuff
+
+# Passerellidae: 
+
+passerellidae <- tins_roi %>% 
+  filter(family == "Passerellidae") %>% 
+  group_by(spec_label, doy) %>% 
+  summarize(count = n())
+  
+
+ggplot(passerellidae, aes(x = doy,
+                          y = count,
+                          color = spec_label)) + 
+  geom_point() + 
+  theme_minimal()
+
+# Should be count per net hour
+
+```
+
+```{r}
+
+# Let's look at species specific stuff
+
+# Picidae: 
+
+picidae <- tins_roi %>% 
+  filter(family == "Picidae") %>% 
+  group_by(spec_label, date) %>% 
+  summarize(count = n())
+  
+
+ggplot(picidae, aes(x = date,
+                          y = count,
+                          color = spec_label)) + 
+  geom_point(alpha = 0.75) + 
+  theme_minimal()
+
+# Should be count per net hour
+
+```
