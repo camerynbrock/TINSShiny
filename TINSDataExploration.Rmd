@@ -258,21 +258,26 @@ tins_roi <- tins_tidy %>%
                                 spec == "WISN" ~ "Wilson's Snipe",
                                 spec == "MODO" ~ "Mourning Dove",
                                 spec == "BGGN" ~ "Blue-gray Gnatcatcher")) %>% 
-  mutate(year_month = yearmonth(date)) %>% 
-  select(family, family_label, spec, spec_label, date, loc, year_month, year, month, doy, note_2)
+  mutate(year_week = yearweek(date)) %>% 
+  select(family, family_label, spec, spec_label, date, loc, year_week, year, month, doy, note_2)
 
-tins_nethours <- tins_roi %>% 
-  group_by(family, family_label, spec, spec_label, year, year_month) %>% 
-  summarize(count = n())
-
-nethours_monthly <- nethours_daily %>% 
+nethours_weekly <- nethours_daily %>% 
   mutate(month = month(date)) %>% 
   filter(month %in% c(8, 9, 10)) %>% 
-  mutate(year_month = yearmonth(date)) %>% 
-  group_by(year_month) %>% 
+  mutate(year_week = yearweek(date)) %>% 
+  group_by(year_week) %>% 
   summarize(nethours = sum(total_nethours, na.rm = TRUE))
 
+tins_nethours <- tins_roi %>% 
+  group_by(family, family_label, spec, spec_label, year, year_week) %>% 
+  summarize(count = n()) %>% 
+  inner_join(nethours_weekly, by = "year_week") %>% 
+  mutate(count_per_hour = count / nethours)
 
+ggplot(tins_nethours, aes(x = year_week,
+                          y = count_per_hour)) + 
+  geom_point(aes(color = family),
+             alpha = 0.8)
 
 ```
 
