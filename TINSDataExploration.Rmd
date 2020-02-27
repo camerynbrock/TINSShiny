@@ -96,7 +96,6 @@ nethours_daily <- read_csv(here::here("RawData", "Nethours2010.csv")) %>%
 ```
 
 ```{r} 
-
 # bind all years
 
 tins <- bind_rows(tins_2010,
@@ -274,10 +273,45 @@ tins_nethours <- tins_roi %>%
   inner_join(nethours_weekly, by = "year_week") %>% 
   mutate(count_per_hour = count / nethours)
 
+```
+
+
+```{r, fig.height = 7, fig.width = 5} 
+
 ggplot(tins_nethours, aes(x = year_week,
                           y = count_per_hour)) + 
   geom_point(aes(color = family),
-             alpha = 0.8)
+             alpha = 0.75,
+             show.legend = FALSE) +
+  geom_smooth(size = 0.5,
+              color = "gray60",
+              se = FALSE) +
+  facet_wrap(~family, 
+             scales = "free_y",
+             nrow = 8) + 
+  theme_minimal() + 
+  labs(x = "Year week",
+       y = "Count per net hour")
+
+```
+
+
+```{r, fig.height = 10, fig.width = 5} 
+
+ggplot(tins_nethours, aes(x = year_week,
+                          y = count_per_hour)) + 
+  geom_point(aes(color = family),
+             alpha = 0.75,
+             show.legend = FALSE) +
+  geom_smooth(size = 0.5,
+              color = "gray60",
+              se = FALSE) +
+  facet_wrap(~spec_label,
+             scales = "free_y",
+             nrow = 14) + 
+  theme_minimal() + 
+  labs(x = "Year week",
+       y = "Count per net hour")
 
 ```
 
