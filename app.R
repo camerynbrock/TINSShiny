@@ -1,32 +1,23 @@
----
-title: "TINS ShinyApp"
-author: "Cameryn Brock"
-date: "2/27/2020"
-output: html_document
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE,
-                      warning = FALSE,
-                      message = FALSE)
-```
-
-```{r}
+###
+# Attach packages
+###
 
 library(tidyverse)
+library(shiny)
+library(shinythemes)
 library(here)
 library(janitor)
 library(lubridate)
-library(kableExtra)
 library(paletteer)
 library(tsibble)
 
-```
 
-```{r}
+###
+### Data wrangling
+###
 
 # Read in and clean up data to combine separate year files to one df
-
+  
 tins_2010 <- read_csv(here::here("RawData", "2010.csv"), 
                       col_types = cols(.default = "c")) %>%  
   select(-c(29, 30, 32)) %>% 
@@ -41,15 +32,15 @@ tins_2012 <- read_csv(here::here("RawData", "2012.csv"),
 
 tins_2013 <- read_csv(here::here("RawData", "2013.csv"), 
                       col_types = cols(.default = "c"))
- 
+
 tins_2014 <- read_csv(here::here("RawData", "2014.csv"), 
                       col_types = cols(.default = "c"))
- 
+
 tins_2015 <- read_csv(here::here("RawData", "datafixed2015.csv"), 
                       col_types = cols(.default = "c")) %>% 
   select(-c(25:27)) %>% 
   rename("NOTE?" = "Comment")
- 
+
 tins_2016 <- read_csv(here::here("RawData", "2016.csv"), 
                       col_types = cols(.default = "c")) %>% 
   select(-c(25:27)) %>% 
@@ -60,12 +51,12 @@ tins_2017 <- read_csv(here::here("RawData", "2017.csv"),
                       col_types = cols(.default = "c")) %>% 
   head(167) %>% 
   rename("NOTE?" = "Comment")
- 
+
 tins_2018 <- read_csv(here::here("RawData", "2018.csv"), 
                       col_types = cols(.default = "c")) %>% 
   head(200) %>% 
   rename("NOTE?" = "Comment")
- 
+
 tins_2019 <- read_csv(here::here("RawData", "2019.csv"), 
                       col_types = cols(.default = "c")) %>% 
   head(29) %>% 
@@ -77,9 +68,6 @@ nethours_daily <- read_csv(here::here("RawData", "Nethours2010.csv")) %>%
   clean_names() %>% 
   mutate(date = mdy(date))
 
-```
-
-```{r} 
 # bind all years
 
 tins <- bind_rows(tins_2010,
@@ -207,7 +195,7 @@ tins_roi <- tins_tidy %>%
                                 spec == "DUFL" ~ "Dusky Flycatcher",
                                 spec == "HAFL" ~ "Hammond's Flycatcher",
                                 spec == "BLPH" ~ "Black Phoebe",
-                                spec == "WEFL" ~ "Pacific-slope Flycatcher", # Ask Will if this is ok
+                                spec == "WEFL" ~ "Pacific-slope Flycatcher", 
                                 spec == "WAVI" ~ "Warbling Vireo",
                                 spec == "CAVI" ~ "Cassin's Vireo",
                                 spec == "BCHU" ~ "Black-chinned Hummingbird",
@@ -242,12 +230,8 @@ tins_roi <- tins_tidy %>%
                                 spec == "MODO" ~ "Mourning Dove",
                                 spec == "BGGN" ~ "Blue-gray Gnatcatcher")) %>% 
   mutate(year_week = yearweek(date)) %>% 
-  select(family, family_label, spec, spec_label, date, loc, year_week, year, month, doy, note_2)
-
-```
-
-
-```{r} 
+  select(family, family_label, spec, spec_label, date, 
+         loc, year_week, year, month, doy, note_2)
 
 nethours_weekly <- nethours_daily %>% 
   mutate(month = month(date)) %>% 
@@ -262,218 +246,89 @@ tins_nethours <- tins_roi %>%
   inner_join(nethours_weekly, by = "year_week") %>% 
   mutate(count_per_hour = count / nethours) %>% 
   mutate(week = lubridate::isoweek(year_week)) %>% 
-  select(family, family_label, spec, spec_label, year, year_week, week, count, nethours, count_per_hour)
+  select(family, family_label, spec, spec_label, year, 
+         year_week, week, count, nethours, count_per_hour)
 
-```
+###
+### Shiny App 
+###
 
-### Families count / net hour / week for 2010-2019
-
-```{r, fig.height = 10, fig.width = 8} 
-
-ggplot(tins_nethours, aes(x = year_week,
-                          y = count_per_hour)) + 
-  geom_jitter(aes(color = family),
-             alpha = 0.75,
-             show.legend = FALSE) +
-  geom_smooth(size = 0.5,
-              color = "gray75",
-              se = FALSE) +
-  facet_wrap(~family, 
-             scales = "free_y",
-             nrow = 8) + 
-  theme_minimal() + 
-  labs(x = "Year week",
-       y = "Count per net hour")
-
-```
-
-******
-
-### Species count / net hour / week for 2010-2019
-
-```{r, fig.height = 27, fig.width = 8} 
-
-ggplot(tins_nethours, aes(x = year_week,
-                          y = count_per_hour)) + 
-  geom_jitter(aes(color = family),
-             alpha = 0.75,
-             show.legend = FALSE) +
-  geom_smooth(size = 0.5,
-              color = "gray75",
-              se = FALSE) +
-  facet_wrap(~spec_label,
-             scales = "free_y",
-             ncol = 3) + 
-  theme_minimal() + 
-  labs(x = "Year week",
-       y = "Count per net hour")
-
-```
-
-******
-
-### Families seasonally, count / net hour / week for all years
-
-```{r, fig.height = 10, fig.width = 8} 
-
-# Seasonal plots
-
-ggplot(tins_nethours, aes(x = week,
-                          y = count_per_hour)) + 
-  geom_jitter(aes(color = family),
-             alpha = 0.75,
-             show.legend = FALSE) +
-  geom_smooth(size = 0.5,
-              color = "gray75",
-              se = FALSE) +
-  facet_wrap(~family, 
-             scales = "free_y",
-             nrow = 8) + 
-  theme_minimal() + 
-  labs(x = "Week (all years)",
-       y = "Count per net hour") +
-  scale_x_continuous(breaks = c(33, 37, 41),
-                     labels = c("August", "September", "October"))
-
-```
-
-******
-
-### Species seasonally, count / net hour / week for all years
-
-```{r, fig.height = 27, fig.width = 8} 
-
-ggplot(tins_nethours, aes(x = week,
-                          y = count_per_hour)) + 
-  geom_jitter(aes(color = family),
-             alpha = 0.75,
-             show.legend = FALSE) +
-  geom_smooth(size = 0.5,
-              color = "gray75",
-              se = FALSE) +
-  facet_wrap(~spec_label,
-             scales = "free_y",
-             ncol = 3) + 
-  theme_minimal() + 
-  labs(x = "Week (all years)",
-       y = "Count per net hour") +
-  scale_x_continuous(breaks = c(33, 37, 41),
-                     labels = c("August", "September", "October"))
-
-```
-
-```{r}
-
-# Summarize data
-
-spec_summary <- tins_roi %>% 
-  group_by(year, spec) %>% 
-  summarize(count = n())
-
-```
-
-```{r, include = FALSE}
-
-# Species and individuals per day and per month (unsure if useful)
-
-spec_day <- tins_roi %>% 
-  group_by(date, spec) %>% 
-  summarize(no_spec = n()) %>% 
-  group_by(date) %>% 
-  summarize(no_spec = n())
-
-spec_month <- tins_roi %>% 
-  group_by(year, month, spec) %>% 
-  summarize(no_spec = n()) %>% 
-  group_by(year, month) %>% 
-  summarize(no_spec = n())
-
-ind_day <- tins_roi %>% 
-  group_by(date) %>% 
-  summarize(no_ind = n())
-
-ind_month <- tins_roi %>% 
-  group_by(year, month) %>% 
-  summarize(no_ind = n())
-
-daily_per_hour <- 
-  bind_rows(ind_day, spec_day, nethours_daily) %>% 
-  select(date, no_ind, no_spec, total_nethours) %>% 
-  group_by(date) %>% 
-  summarize(no_ind = sum(no_ind, na.rm = TRUE),
-            no_spec = sum(no_spec, na.rm = TRUE),
-            nethours = sum(total_nethours, na.rm = TRUE)) %>% 
-  filter(!nethours == 0) %>% 
-  mutate(spec_per_hour = no_spec / nethours,
-         ind_per_hour = no_ind / nethours) %>%
-  mutate(year = year(date),
-         month = month(date, label = TRUE),
-         doy = lubridate::yday(date))
+# Create the user interface
+  
+ui <- fluidPage(
+  theme = shinytheme("cerulean"),
+  titlePanel("TINS Long-Term Bird Monitoring"),
+  sidebarLayout(
+    sidebarPanel(selectInput(inputId = "select_fam",
+                             label = "Choose a family",
+                             choices = unique(tins_nethours$family_label)),
+                 selectInput(inputId = "select_spec",
+                             label = "Choose a species",
+                             choices = unique(tins_nethours$spec_label))),
+    mainPanel(p("Family seasonally, count / net hour / week for all years (2010-2019)"),
+              plotOutput(outputId = "seasonal_hour_graph"),
+              p("Species seasonally, count / net hour / week for all years (2010-2019)"),
+              plotOutput(outputId = "seasonal_effort_graph")
+            )))
 
 
-# monthly_per_hour <- 
-#  bind_rows(ind_month, spec_month, nethours_monthly) %>% 
-#  select(month, no_ind, no_spec, nethours) %>% 
-#  group_by(year, month) %>% 
-#  summarize(no_ind = sum(no_ind, na.rm = TRUE),
-#            no_spec = sum(no_spec, na.rm = TRUE),
-#            nethours = sum(nethours, na.rm = TRUE)) %>% 
-#  filter(!nethours == 0) %>% 
-#  mutate(spec_per_hour = no_spec / nethours,
-#         ind_per_hour = no_ind / nethours)
+# Create the server interface
 
-## Need to fix because got rid of nethours_monthly to work with weeks instead. Should probably be consistent and do all this as weeks if I'm going to use it
+server <- function(input, output) {
+  seasonal <- reactive({
+    tins_nethours %>% 
+      filter(family_label == input$select_fam)
+  })
+  output$seasonal_hour_graph <- renderPlot({
+    ggplot(seasonal(), aes(x = week, y = count_per_hour)) + 
+      geom_jitter(aes(color = spec_label),
+                  alpha = 0.75,
+                  size = 2) +
+      geom_smooth(size = 0.5,
+                  color = "gray75",
+                  se = FALSE) +
+      theme_minimal() + 
+      labs(x = "Week (all years)",
+           y = "Count per net hour",
+           color = "Species") +
+      scale_x_continuous(limits = c(32, 42),
+                           breaks = c(32, 33, 34, 35, 36, 
+                                      37, 38, 39, 40, 41, 42),
+                         labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                    "9/13", "9/20", "9/27", "10/4", "10/11",
+                                    "10/18"))
+  }) 
+  output$seasonal_effort_graph <- renderPlot({
+    ggplot(seasonal(), aes(x = week, y = count)) +
+      geom_col(aes(fill = spec_label)) +
+      theme_minimal() + 
+      labs(x = "Week (all years)",
+           y = "Total count",
+           fill = "Species") +
+      scale_x_continuous(limits = c(32, 42),
+                         breaks = c(32, 33, 34, 35, 36, 37, 
+                                    38, 39, 40, 41, 42),
+                         labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                    "9/13", "9/20", "9/27", "10/4", "10/11",
+                                    "10/18"))
+  })
+  
+}
 
-ggplot(daily_per_hour, aes(x = doy,
-                          y = ind_per_hour)) +
-  geom_point(aes(color = year),
-             size = 3,
-             alpha = 0.75) +
-  scale_color_paletteer_c("grDevices::TealRose") + 
-  theme_minimal() +
-  labs(x = "Day of Year",
-       y = "Average individuals per net hour",
-       color = "Year")
+shinyApp(ui = ui, server = server)
 
-```
+# Want the family graph to show up, then want select input to be species from that family, then want that species to be highlight (specific color) and geom_smooth to show up for just that species as well 
+# Change below graph to be bar graph of total count (instead of count/hour). Then with that one the proportion would change color when you select a single species
+# Problem is that for bar graph want selected species to be at the bottom so you can actually understand the amount? 
 
-```{r, include = FALSE}
-
-# Let's look at species specific stuff
-
-# Passerellidae: 
-
-passerellidae <- tins_nethours %>% 
-  filter(family == "Passerellidae")
-
-ggplot(passerellidae, aes(x = week,
-                          y = count_per_hour)) + 
-  geom_jitter(aes(color = spec_label),
-              alpha = 0.8) + 
-  theme_minimal() +
-  scale_x_continuous(breaks = c(33, 37, 41),
-                     labels = c("August", "September", "October"))
-
-
-```
-
-```{r, include = FALSE}
-
-# Let's look at species specific stuff
-
-# Picidae: 
-
-picidae <- tins_nethours %>% 
-  filter(family == "Picidae")
-
-ggplot(picidae, aes(x = week,
-                          y = count_per_hour)) + 
-  geom_jitter(aes(color = spec_label)) + 
-  geom_smooth(aes(color = spec_label),
-              se = FALSE,
-              size = 0.5) +
-  theme_minimal() +
-  scale_x_continuous(breaks = c(32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42),
-                     labels = c("Aug 1", "2", "3", "4", "Sept 1", "2", "3", "4", "Oct 1", "2", "3"))
-
-```
+## Allison
+# How to make selectId reactive to first selectId... or plotly?
+# updateSelectInput? 
+# renderUI makes it so something will show up when you select something
+# Should I do two geom smooths on top of each other and reactive if else statement? 
+# Bar graph? Want selected sp at bottom so you can understand count? Or? Maybe unstack when you choose a species...? 
+# Changing geom_smooth based on second inputId vs none?
+# Dropdown options based on another widget - Shiny thread
+# selectizeInput
+# gghighlight() 
+# ifelse to show entirely different graph with highlights

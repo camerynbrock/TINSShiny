@@ -1,0 +1,10 @@
+name: TINSShinyApp
+title: TINSShinyApp
+username:
+account: camerynbrock
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1896766
+bundleId: 2847991
+url: https://camerynbrock.shinyapps.io/TINSShinyApp/
+when: 1583264360.13185
