@@ -250,6 +250,14 @@ tins_nethours <- tins_roi %>%
          year_week, week, count, nethours, count_per_hour)
 
 
+integer_breaks <- function(n = 5, ...) {
+  fxn <- function(x) {
+    breaks <- floor(pretty(x, n, ...))
+    names(breaks) <- attr(breaks, "labels")
+    breaks
+  }
+  return(fxn)
+}
 
 ###
 ### Shiny App 
@@ -279,10 +287,10 @@ ui <- fluidPage(
         tabPanel("Bird Count",
                  br(),
                  p("Family seasonal (2010-2019)"), 
-                 plotOutput(outputId = "seasonal_hour_graph"), 
+                 plotOutput(outputId = "seasonal_fam_hour_graph"), 
                  br(), 
                  p("Species seasonal (2010-2019)"),
-                 plotOutput(outputId = "seasonal_effort_graph")),
+                 plotOutput(outputId = "seasonal_fam_effort_graph")),
         tabPanel("Recaptures"),
         tabPanel("Species")))))
 
@@ -292,57 +300,106 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
-  seasonal <- reactive({
+  seasonal_fam <- reactive({
     tins_nethours %>% 
       filter(family_label == input$select_fam)
   })
   
-  observeEvent(seasonal(),
+  seasonal_spec <- reactive({
+    tins_nethours %>% 
+      filter(spec_label == input$select_spec)
+  })
+  
+  observeEvent(seasonal_fam(),
                {
                  updateSelectInput(
                    session, 
                    input = "select_spec",
-                   choices = c(" ", seasonal()$spec_label))
+                   choices = c("All", seasonal_fam()$spec_label))
                })
 
-  output$seasonal_hour_graph <- renderPlot({
-    ggplot(seasonal(), aes(x = week, y = count_per_hour)) + 
-      geom_jitter(aes(color = spec_label),
+  output$seasonal_fam_hour_graph <- renderPlot({
+    if(input$select_spec == "All"){
+    ggplot(seasonal_fam(), aes(x = week, y = count_per_hour)) + 
+        geom_jitter(aes(color = spec_label),
                   alpha = 0.75,
                   size = 2) +
-      geom_smooth(size = 0.5,
+        geom_smooth(size = 0.5,
                   color = "gray75",
                   se = FALSE) +
-      theme_minimal() + 
-      labs(x = "Week (all years)",
+        theme_minimal() + 
+        labs(x = "Week (all years)",
            y = "Count per net hour",
            color = "Species") +
-      scale_x_continuous(limits = c(32, 42),
+        scale_x_continuous(limits = c(32, 42),
                            breaks = c(32, 33, 34, 35, 36, 
                                       37, 38, 39, 40, 41, 42),
-                         labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
                                     "9/13", "9/20", "9/27", "10/4", "10/11",
-                                    "10/18"))
+                                    "10/18"))}
+    else({
+      ggplot(seasonal_spec(), aes(x = week, y = count_per_hour)) + 
+        geom_jitter(color = "steelblue2",
+                    alpha = 0.75,
+                    size = 2) +
+        geom_smooth(size = 0.5,
+                    color = "gray75",
+                    se = FALSE) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Count per net hour",
+             color = "Species") +
+        scale_x_continuous(limits = c(32, 42),
+                           breaks = c(32, 33, 34, 35, 36, 
+                                      37, 38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))
+
+    })
   }) 
   
-  output$seasonal_effort_graph <- renderPlot({
-    ggplot(seasonal(), aes(x = week, y = count)) +
-      geom_col(aes(fill = spec_label)) +
-      theme_minimal() + 
-      labs(x = "Week (all years)",
+  output$seasonal_fam_effort_graph <- renderPlot({
+    if(input$select_spec == "All"){
+      ggplot(seasonal_fam(), aes(x = week, y = count)) +
+        geom_col(aes(fill = spec_label)) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
            y = "Total count",
            fill = "Species") +
-      scale_x_continuous(limits = c(32, 42),
+        scale_y_continuous(breaks = integer_breaks()) +
+        scale_x_continuous(limits = c(32, 42),
                          breaks = c(32, 33, 34, 35, 36, 37, 
                                     38, 39, 40, 41, 42),
                          labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
                                     "9/13", "9/20", "9/27", "10/4", "10/11",
-                                    "10/18"))
+                                    "10/18"))}
+    else({
+      ggplot(seasonal_spec(), aes(x = week, y = count)) +
+        geom_col(fill = "steelblue2") +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Total count",
+             fill = "Species") +
+        scale_y_continuous(breaks = integer_breaks()) +
+        scale_x_continuous(limits = c(32, 42),
+                           breaks = c(32, 33, 34, 35, 36, 37, 
+                                      38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))
   })
-  
+})
 }
 
 shinyApp(ui = ui, server = server)
+
+
+
+
+###
+### Notes
+###
 
 # Want the family graph to show up, then want select input to be species from that family, then want that species to be highlight (specific color) and geom_smooth to show up for just that species as well 
 # Change below graph to be bar graph of total count (instead of count/hour). Then with that one the proportion would change color when you select a single species
