@@ -267,10 +267,11 @@ ui <- fluidPage(
         inputId = "select_fam",
         label = "Choose a family",
         choices = unique(tins_nethours$family_label)), 
-      selectizeInput(
+      selectInput(
         inputId = "select_spec",
         label = "Choose a species",
-        choices = NULL)),
+        choices = NULL
+        )),
     
     mainPanel(
       tabsetPanel(
@@ -298,10 +299,10 @@ server <- function(input, output, session) {
   
   observeEvent(seasonal(),
                {
-                 updateSelectizeInput(
+                 updateSelectInput(
                    session, 
                    input = "select_spec",
-                   choices = seasonal()$spec_label)
+                   choices = c(" ", seasonal()$spec_label))
                })
 
   output$seasonal_hour_graph <- renderPlot({
