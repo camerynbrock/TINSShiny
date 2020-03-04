@@ -249,36 +249,61 @@ tins_nethours <- tins_roi %>%
   select(family, family_label, spec, spec_label, year, 
          year_week, week, count, nethours, count_per_hour)
 
+
+
 ###
 ### Shiny App 
 ###
 
-# Create the user interface
+# User interface
   
 ui <- fluidPage(
   theme = shinytheme("cerulean"),
   titlePanel("TINS Long-Term Bird Monitoring"),
+  
   sidebarLayout(
-    sidebarPanel(selectInput(inputId = "select_fam",
-                             label = "Choose a family",
-                             choices = unique(tins_nethours$family_label)),
-                 selectInput(inputId = "select_spec",
-                             label = "Choose a species",
-                             choices = unique(tins_nethours$spec_label))),
-    mainPanel(p("Family seasonally, count / net hour / week for all years (2010-2019)"),
-              plotOutput(outputId = "seasonal_hour_graph"),
-              p("Species seasonally, count / net hour / week for all years (2010-2019)"),
-              plotOutput(outputId = "seasonal_effort_graph")
-            )))
+    sidebarPanel(
+      selectInput(
+        inputId = "select_fam",
+        label = "Choose a family",
+        choices = unique(tins_nethours$family_label)), 
+      selectizeInput(
+        inputId = "select_spec",
+        label = "Choose a species",
+        choices = NULL)),
+    
+    mainPanel(
+      tabsetPanel(
+        type = "tabs",
+        tabPanel("Bird Count",
+                 br(),
+                 p("Family seasonal (2010-2019)"), 
+                 plotOutput(outputId = "seasonal_hour_graph"), 
+                 br(), 
+                 p("Species seasonal (2010-2019)"),
+                 plotOutput(outputId = "seasonal_effort_graph")),
+        tabPanel("Recaptures"),
+        tabPanel("Species")))))
 
 
-# Create the server interface
 
-server <- function(input, output) {
+# Server 
+
+server <- function(input, output, session) {
+  
   seasonal <- reactive({
     tins_nethours %>% 
       filter(family_label == input$select_fam)
   })
+  
+  observeEvent(seasonal(),
+               {
+                 updateSelectizeInput(
+                   session, 
+                   input = "select_spec",
+                   choices = seasonal()$spec_label)
+               })
+
   output$seasonal_hour_graph <- renderPlot({
     ggplot(seasonal(), aes(x = week, y = count_per_hour)) + 
       geom_jitter(aes(color = spec_label),
@@ -298,6 +323,7 @@ server <- function(input, output) {
                                     "9/13", "9/20", "9/27", "10/4", "10/11",
                                     "10/18"))
   }) 
+  
   output$seasonal_effort_graph <- renderPlot({
     ggplot(seasonal(), aes(x = week, y = count)) +
       geom_col(aes(fill = spec_label)) +
