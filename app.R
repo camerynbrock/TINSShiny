@@ -273,11 +273,11 @@ ui <- fluidPage(
     sidebarPanel(
       selectInput(
         inputId = "select_fam",
-        label = "Choose a family",
-        choices = unique(tins_nethours$family_label)), 
+        label = "First: Choose a family",
+        choices = c("All", unique(tins_nethours$family_label))), 
       selectInput(
         inputId = "select_spec",
-        label = "Choose a species",
+        label = "Second: Choose a species",
         choices = NULL
         )),
     
@@ -310,6 +310,9 @@ server <- function(input, output, session) {
       filter(spec_label == input$select_spec)
   })
   
+  tins_nethours_all <- reactive({
+    tins_nethours})
+  
   observeEvent(seasonal_fam(),
                {
                  updateSelectInput(
@@ -319,7 +322,27 @@ server <- function(input, output, session) {
                })
 
   output$seasonal_fam_hour_graph <- renderPlot({
-    if(input$select_spec == "All"){
+   
+     if(input$select_fam == "All"){
+      ggplot(tins_nethours_all(), aes(x = week, y = count_per_hour)) + 
+        geom_jitter(color = "steelblue2",
+                    alpha = 0.75,
+                    size = 2) +
+        geom_smooth(size = 0.5,
+                    color = "gray75",
+                    se = FALSE) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Count per net hour",
+             color = "Species") +
+        scale_x_continuous(limits = c(32, 42),
+                           breaks = c(32, 33, 34, 35, 36, 
+                                      37, 38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))}
+    
+    else if(input$select_spec == "All"){
     ggplot(seasonal_fam(), aes(x = week, y = count_per_hour)) + 
         geom_jitter(aes(color = spec_label),
                   alpha = 0.75,
@@ -360,7 +383,23 @@ server <- function(input, output, session) {
   }) 
   
   output$seasonal_fam_effort_graph <- renderPlot({
-    if(input$select_spec == "All"){
+    
+    if(input$select_fam == "All"){
+      ggplot(tins_nethours_all(), aes(x = week, y = count)) +
+        geom_col(fill = "steelblue2") +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Total count",
+             fill = "Species") +
+        scale_y_continuous(breaks = integer_breaks()) +
+        scale_x_continuous(limits = c(32, 42),
+                           breaks = c(32, 33, 34, 35, 36, 37, 
+                                      38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))}
+    
+    else if(input$select_spec == "All"){
       ggplot(seasonal_fam(), aes(x = week, y = count)) +
         geom_col(aes(fill = spec_label)) +
         theme_minimal() + 
