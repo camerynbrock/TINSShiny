@@ -10,6 +10,7 @@ library(janitor)
 library(lubridate)
 library(paletteer)
 library(tsibble)
+library(RColorBrewer)
 
 
 ###
@@ -259,6 +260,10 @@ integer_breaks <- function(n = 5, ...) {
   return(fxn)
 }
 
+nb.cols <- 12
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
+
+
 ###
 ### Shiny App 
 ###
@@ -271,28 +276,31 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      selectInput(
-        inputId = "select_fam",
-        label = "First: Choose a family",
-        choices = c("All", unique(tins_nethours$family_label))), 
-      selectInput(
-        inputId = "select_spec",
-        label = "Second: Choose a species",
-        choices = NULL
-        )),
+      "Description will go here. This is a Shiny App to display data collected by the Tahoe Institute for Natural Science (www.tinsweb.org) in their long-term bird banding efforts. TINS logo maybe or something. To use this app, start by selecting a family on the right. You will then have the option to look at individual species within that family. The top has a standardized metric of count/hour. The bottom shows the total count. Both are from data from 2010-2019.",
+      width = 3
+     ),
     
     mainPanel(
       tabsetPanel(
         type = "tabs",
         tabPanel("Bird Count",
                  br(),
+                 selectInput(
+                   inputId = "select_fam",
+                   label = "First: Choose a family",
+                   choices = c("All", unique(tins_nethours$family_label))), 
+                 selectInput(
+                   inputId = "select_spec",
+                   label = "Second: Choose a species",
+                   choices = NULL),
+                 br(),
                  p("Family seasonal (2010-2019)"), 
                  plotOutput(outputId = "seasonal_fam_hour_graph"), 
                  br(), 
                  p("Species seasonal (2010-2019)"),
-                 plotOutput(outputId = "seasonal_fam_effort_graph")),
+                 plotOutput(outputId = "seasonal_fam_effort_graph"),
         tabPanel("Recaptures"),
-        tabPanel("Species")))))
+        tabPanel("Species"))))))
 
 
 
@@ -325,9 +333,10 @@ server <- function(input, output, session) {
    
      if(input$select_fam == "All"){
       ggplot(tins_nethours_all(), aes(x = week, y = count_per_hour)) + 
-        geom_jitter(color = "steelblue2",
+        geom_jitter(color = "powderblue",
                     alpha = 0.75,
-                    size = 2) +
+                    size = 2,
+                    width = 0.45) +
         geom_smooth(size = 0.5,
                     color = "gray75",
                     se = FALSE) +
@@ -335,7 +344,7 @@ server <- function(input, output, session) {
         labs(x = "Week (all years)",
              y = "Count per net hour",
              color = "Species") +
-        scale_x_continuous(limits = c(32, 42),
+        scale_x_continuous(limits = c(31.5, 42.5),
                            breaks = c(32, 33, 34, 35, 36, 
                                       37, 38, 39, 40, 41, 42),
                            labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
@@ -346,7 +355,8 @@ server <- function(input, output, session) {
     ggplot(seasonal_fam(), aes(x = week, y = count_per_hour)) + 
         geom_jitter(aes(color = spec_label),
                   alpha = 0.75,
-                  size = 2) +
+                  size = 2,
+                  width = 0.45) +
         geom_smooth(size = 0.5,
                   color = "gray75",
                   se = FALSE) +
@@ -354,7 +364,8 @@ server <- function(input, output, session) {
         labs(x = "Week (all years)",
            y = "Count per net hour",
            color = "Species") +
-        scale_x_continuous(limits = c(32, 42),
+        scale_color_manual(values = mycolors) +
+        scale_x_continuous(limits = c(31.5, 42.5),
                            breaks = c(32, 33, 34, 35, 36, 
                                       37, 38, 39, 40, 41, 42),
                            labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
@@ -362,9 +373,10 @@ server <- function(input, output, session) {
                                     "10/18"))}
     else({
       ggplot(seasonal_spec(), aes(x = week, y = count_per_hour)) + 
-        geom_jitter(color = "steelblue2",
+        geom_jitter(color = "powderblue",
                     alpha = 0.75,
-                    size = 2) +
+                    size = 2,
+                    width = 0.45) +
         geom_smooth(size = 0.5,
                     color = "gray75",
                     se = FALSE) +
@@ -372,7 +384,7 @@ server <- function(input, output, session) {
         labs(x = "Week (all years)",
              y = "Count per net hour",
              color = "Species") +
-        scale_x_continuous(limits = c(32, 42),
+        scale_x_continuous(limits = c(31.5, 42.5),
                            breaks = c(32, 33, 34, 35, 36, 
                                       37, 38, 39, 40, 41, 42),
                            labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
@@ -386,13 +398,14 @@ server <- function(input, output, session) {
     
     if(input$select_fam == "All"){
       ggplot(tins_nethours_all(), aes(x = week, y = count)) +
-        geom_col(fill = "steelblue2") +
+        geom_col(fill = "powderblue",
+                 width = 0.75) +
         theme_minimal() + 
         labs(x = "Week (all years)",
              y = "Total count",
              fill = "Species") +
         scale_y_continuous(breaks = integer_breaks()) +
-        scale_x_continuous(limits = c(32, 42),
+        scale_x_continuous(limits = c(31.5, 42.5),
                            breaks = c(32, 33, 34, 35, 36, 37, 
                                       38, 39, 40, 41, 42),
                            labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
@@ -401,13 +414,15 @@ server <- function(input, output, session) {
     
     else if(input$select_spec == "All"){
       ggplot(seasonal_fam(), aes(x = week, y = count)) +
-        geom_col(aes(fill = spec_label)) +
+        geom_col(aes(fill = spec_label),
+                 width = 0.75) +
         theme_minimal() + 
         labs(x = "Week (all years)",
            y = "Total count",
            fill = "Species") +
+        scale_fill_manual(values = mycolors) +
         scale_y_continuous(breaks = integer_breaks()) +
-        scale_x_continuous(limits = c(32, 42),
+        scale_x_continuous(limits = c(31.5, 42.5),
                          breaks = c(32, 33, 34, 35, 36, 37, 
                                     38, 39, 40, 41, 42),
                          labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
@@ -415,13 +430,15 @@ server <- function(input, output, session) {
                                     "10/18"))}
     else({
       ggplot(seasonal_spec(), aes(x = week, y = count)) +
-        geom_col(fill = "steelblue2") +
+        geom_col(aes(fill = spec_label),
+                 width = 0.75) +
         theme_minimal() + 
         labs(x = "Week (all years)",
              y = "Total count",
              fill = "Species") +
+        scale_fill_manual(values = "powderblue") +
         scale_y_continuous(breaks = integer_breaks()) +
-        scale_x_continuous(limits = c(32, 42),
+        scale_x_continuous(limits = c(31.5, 42.5),
                            breaks = c(32, 33, 34, 35, 36, 37, 
                                       38, 39, 40, 41, 42),
                            labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
