@@ -298,9 +298,9 @@ ui <- fluidPage(
                  plotOutput(outputId = "seasonal_fam_hour_graph"), 
                  br(), 
                  p("Species seasonal (2010-2019)"),
-                 plotOutput(outputId = "seasonal_fam_effort_graph"),
+                 plotOutput(outputId = "seasonal_fam_effort_graph")),
         tabPanel("Recaptures"),
-        tabPanel("Species"))))))
+        tabPanel("Species")))))
 
 
 
