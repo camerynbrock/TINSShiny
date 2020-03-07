@@ -11,6 +11,7 @@ library(lubridate)
 library(paletteer)
 library(tsibble)
 library(RColorBrewer)
+library(rsconnect)
 
 
 ###
@@ -273,34 +274,65 @@ mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
 ui <- fluidPage(
   theme = shinytheme("cerulean"),
   titlePanel("TINS Long-Term Bird Monitoring"),
-  
   sidebarLayout(
     sidebarPanel(
-      "Description will go here. This is a Shiny App to display data collected by the Tahoe Institute for Natural Science (www.tinsweb.org) in their long-term bird banding efforts. TINS logo maybe or something. To use this app, start by selecting a family on the right. You will then have the option to look at individual species within that family. The top has a standardized metric of count/hour. The bottom shows the total count. Both are from data from 2010-2019.",
+      "**Work in progress**",
+      br(),
+      "Last update: 03-06-2020",
+      br(), br(),
+      "This Shiny App displays data collected by the Tahoe Institute for Natural Science (www.tinsweb.org) for long-term bird monitoring of Sierra Nevada songbirds (2010-2019).",
+      br(), br(),
+      "Tab 1: Bird Count 2010-2019",
+      br(), br(),
+      "Tab 2: Seasonal bird count: Begin by selecting a family on the right. You will then have the option to look at individual species within that family. The graph on top displays the counts standardized by per net per hour. The graph on bottom displays the total number of birds banded.",
+      br(), br(),
+      "Tab 3: Species",
+      br(), br(),
+      "Tab 4: Recaptures",
       width = 3
      ),
-    
+
     mainPanel(
       tabsetPanel(
         type = "tabs",
-        tabPanel("Bird Count",
+        tabPanel("Bird Count 2010-2019",
                  br(),
+                 fluidRow(
+                   column(5,
+                          selectInput(
+                            inputId = "select_fam_total",
+                            label = "First: Choose a family",
+                            choices = c("All", unique(tins_nethours$family_label)))),
+                   column(5,
+                          selectInput(
+                            inputId = "select_spec_total",
+                            label = "Second: Choose a species",
+                            choices = NULL))),
+                 br(),
+                 plotOutput(outputId = "total_fam_hour_graph"), 
+                 br(), 
+                 plotOutput(outputId = "total_fam_effort_graph")),
+        tabPanel("Seasonal Bird Count",
+                 br(),
+                 fluidRow(
+                   column(5,
                  selectInput(
                    inputId = "select_fam",
                    label = "First: Choose a family",
-                   choices = c("All", unique(tins_nethours$family_label))), 
+                   choices = c("All", unique(tins_nethours$family_label)))),
+                 column(5,
                  selectInput(
                    inputId = "select_spec",
                    label = "Second: Choose a species",
-                   choices = NULL),
+                   choices = NULL))),
                  br(),
-                 p("Family seasonal (2010-2019)"), 
                  plotOutput(outputId = "seasonal_fam_hour_graph"), 
                  br(), 
-                 p("Species seasonal (2010-2019)"),
                  plotOutput(outputId = "seasonal_fam_effort_graph")),
-        tabPanel("Recaptures"),
-        tabPanel("Species")))))
+        tabPanel("Species"),
+        tabPanel("Recaptures")))))
+
+
 
 
 
@@ -316,6 +348,16 @@ server <- function(input, output, session) {
   seasonal_spec <- reactive({
     tins_nethours %>% 
       filter(spec_label == input$select_spec)
+  })
+  
+  total_fam <- reactive({
+    tins_nethours %>% 
+      filter(family_label == input$select_fam_total)
+  })
+  
+  total_spec <- reactive({
+    tins_nethours %>% 
+      filter(spec_label == input$select_spec_total)
   })
   
   tins_nethours_all <- reactive({
@@ -373,7 +415,7 @@ server <- function(input, output, session) {
                                     "10/18"))}
     else({
       ggplot(seasonal_spec(), aes(x = week, y = count_per_hour)) + 
-        geom_jitter(color = "powderblue",
+        geom_jitter(aes(color = spec_label),
                     alpha = 0.75,
                     size = 2,
                     width = 0.45) +
@@ -384,6 +426,7 @@ server <- function(input, output, session) {
         labs(x = "Week (all years)",
              y = "Count per net hour",
              color = "Species") +
+        scale_color_manual(values = "powderblue") +
         scale_x_continuous(limits = c(31.5, 42.5),
                            breaks = c(32, 33, 34, 35, 36, 
                                       37, 38, 39, 40, 41, 42),
@@ -446,29 +489,137 @@ server <- function(input, output, session) {
                                       "10/18"))
   })
 })
+  
+  observeEvent(total_fam(),
+               {
+                 updateSelectInput(
+                   session, 
+                   input = "select_spec_total",
+                   choices = c("All", total_fam()$spec_label))
+               })
+  
+  
+  ##########
+  
+  output$total_fam_hour_graph <- renderPlot({
+    
+    if(input$select_fam_total == "All"){
+      ggplot(tins_nethours_all(), aes(x = week, y = count_per_hour)) + 
+        geom_jitter(color = "powderblue",
+                    alpha = 0.75,
+                    size = 2,
+                    width = 0.45) +
+        geom_smooth(size = 0.5,
+                    color = "gray75",
+                    se = FALSE) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Count per net hour",
+             color = "Species") +
+        scale_x_continuous(limits = c(31.5, 42.5),
+                           breaks = c(32, 33, 34, 35, 36, 
+                                      37, 38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))}
+    
+    else if(input$select_spec_total == "All"){
+      ggplot(total_fam(), aes(x = week, y = count_per_hour)) + 
+        geom_jitter(aes(color = spec_label),
+                    alpha = 0.75,
+                    size = 2,
+                    width = 0.45) +
+        geom_smooth(size = 0.5,
+                    color = "gray75",
+                    se = FALSE) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Count per net hour",
+             color = "Species") +
+        scale_color_manual(values = mycolors) +
+        scale_x_continuous(limits = c(31.5, 42.5),
+                           breaks = c(32, 33, 34, 35, 36, 
+                                      37, 38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))}
+    else({
+      ggplot(total_spec(), aes(x = week, y = count_per_hour)) + 
+        geom_jitter(aes(color = spec_label),
+                    alpha = 0.75,
+                    size = 2,
+                    width = 0.45) +
+        geom_smooth(size = 0.5,
+                    color = "gray75",
+                    se = FALSE) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Count per net hour",
+             color = "Species") +
+        scale_color_manual(values = "powderblue") +
+        scale_x_continuous(limits = c(31.5, 42.5),
+                           breaks = c(32, 33, 34, 35, 36, 
+                                      37, 38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))
+      
+    })
+  }) 
+  
+  output$total_fam_effort_graph <- renderPlot({
+    
+    if(input$select_fam_total == "All"){
+      ggplot(tins_nethours_all(), aes(x = week, y = count)) +
+        geom_col(fill = "powderblue",
+                 width = 0.75) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Total count",
+             fill = "Species") +
+        scale_y_continuous(breaks = integer_breaks()) +
+        scale_x_continuous(limits = c(31.5, 42.5),
+                           breaks = c(32, 33, 34, 35, 36, 37, 
+                                      38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))}
+    
+    else if(input$select_spec_total == "All"){
+      ggplot(total_fam(), aes(x = week, y = count)) +
+        geom_col(aes(fill = spec_label),
+                 width = 0.75) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Total count",
+             fill = "Species") +
+        scale_fill_manual(values = mycolors) +
+        scale_y_continuous(breaks = integer_breaks()) +
+        scale_x_continuous(limits = c(31.5, 42.5),
+                           breaks = c(32, 33, 34, 35, 36, 37, 
+                                      38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))}
+    else({
+      ggplot(total_spec(), aes(x = week, y = count)) +
+        geom_col(aes(fill = spec_label),
+                 width = 0.75) +
+        theme_minimal() + 
+        labs(x = "Week (all years)",
+             y = "Total count",
+             fill = "Species") +
+        scale_fill_manual(values = "powderblue") +
+        scale_y_continuous(breaks = integer_breaks()) +
+        scale_x_continuous(limits = c(31.5, 42.5),
+                           breaks = c(32, 33, 34, 35, 36, 37, 
+                                      38, 39, 40, 41, 42),
+                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
+                                      "9/13", "9/20", "9/27", "10/4", "10/11",
+                                      "10/18"))
+    })
+})
 }
 
 shinyApp(ui = ui, server = server)
 
-
-
-
-###
-### Notes
-###
-
-# Want the family graph to show up, then want select input to be species from that family, then want that species to be highlight (specific color) and geom_smooth to show up for just that species as well 
-# Change below graph to be bar graph of total count (instead of count/hour). Then with that one the proportion would change color when you select a single species
-# Problem is that for bar graph want selected species to be at the bottom so you can actually understand the amount? 
-
-## Allison
-# How to make selectId reactive to first selectId... or plotly?
-# updateSelectInput? 
-# renderUI makes it so something will show up when you select something
-# Should I do two geom smooths on top of each other and reactive if else statement? 
-# Bar graph? Want selected sp at bottom so you can understand count? Or? Maybe unstack when you choose a species...? 
-# Changing geom_smooth based on second inputId vs none?
-# Dropdown options based on another widget - Shiny thread
-# selectizeInput
-# gghighlight() 
-# ifelse to show entirely different graph with highlights
