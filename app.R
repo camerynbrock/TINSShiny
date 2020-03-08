@@ -309,8 +309,7 @@ integer_breaks <- function(n = 5, ...) {
   return(fxn)
 }
 
-nb.cols <- 12
-mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(12)
 
 
 #####
@@ -326,12 +325,12 @@ mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
 
 ui <- fluidPage(
   theme = shinytheme("cerulean"),
-  titlePanel("TINS Long-Term Bird Monitoring"),
+  titlePanel("Tahoe Instititute for Natural Science Long-Term Bird Monitoring"),
   sidebarLayout(
     sidebarPanel(
       "**Work in progress**",
       br(),
-      "Last update: 03-06-2020",
+      "Last update: 03-08-2020",
       br(), br(),
       "This Shiny App displays data collected by the Tahoe Institute for Natural Science (www.tinsweb.org) for long-term bird monitoring of Sierra Nevada songbirds (2010-2019).",
       br(), br(),
@@ -342,6 +341,10 @@ ui <- fluidPage(
       "Tab 3: Species",
       br(), br(),
       "Tab 4: Recaptures",
+      br(), br(),
+      img(src = "tins-logo.png",
+          width = "80%",
+          height = "80%"),
       width = 3
      ),
 
@@ -507,7 +510,7 @@ server <- function(input, output, session) {
         labs(x = "Week (all years)",
              y = "Count per net hour",
              color = "Species") +
-        scale_color_manual(values = "powderblue") +
+        scale_color_manual(values = mycolors) +
         scale_x_continuous(limits = c(31.5, 42.5),
                            breaks = c(32, 33, 34, 35, 36, 
                                       37, 38, 39, 40, 41, 42),
@@ -560,7 +563,7 @@ server <- function(input, output, session) {
         labs(x = "Week (all years)",
              y = "Total count",
              fill = "Species") +
-        scale_fill_manual(values = "powderblue") +
+        scale_fill_manual(values = mycolors) +
         scale_y_continuous(breaks = integer_breaks()) +
         scale_x_continuous(limits = c(31.5, 42.5),
                            breaks = c(32, 33, 34, 35, 36, 37, 
@@ -630,7 +633,7 @@ server <- function(input, output, session) {
         labs(x = "Year",
              y = "Average count per net hour",
              color = "Species") +
-        scale_color_manual(values = "powderblue") +
+        scale_color_manual(values = mycolors) +
         scale_x_continuous(limits = c(2009.5, 2019.5),
                            breaks = seq(2010, 2019, by = 1),
                            minor_breaks = NULL)
@@ -645,7 +648,7 @@ server <- function(input, output, session) {
         geom_col(fill = "powderblue",
                  width = 0.75) +
         theme_minimal() + 
-        labs(x = "Date (year week)",
+        labs(x = "Year",
              y = "Total count",
              fill = "Species") +
         scale_y_continuous(breaks = integer_breaks()) +
@@ -658,7 +661,7 @@ server <- function(input, output, session) {
         geom_col(aes(fill = spec_label),
                  width = 0.75) +
         theme_minimal() + 
-        labs(x = "Date (year week)",
+        labs(x = "Year",
              y = "Total count",
              fill = "Species") +
         scale_fill_manual(values = mycolors) +
@@ -671,10 +674,10 @@ server <- function(input, output, session) {
         geom_col(aes(fill = spec_label),
                  width = 0.75) +
         theme_minimal() + 
-        labs(x = "Date (year week)",
+        labs(x = "Year",
              y = "Total count",
              fill = "Species") +
-        scale_fill_manual(values = "powderblue") +
+        scale_fill_manual(values = mycolors) +
         scale_y_continuous(breaks = integer_breaks()) +
         scale_x_continuous(limits = c(2009.5, 2019.5),
                            breaks = seq(2010, 2019, by = 1),
@@ -688,26 +691,27 @@ server <- function(input, output, session) {
     
     if(input$select_rec == "All"){
     species_tmap <- 
-      tm_basemap("CartoDB.VoyagerLabelsUnder") +
+      tm_basemap("CartoDB.VoyagerNoLabels") +
       tm_shape(sf) +
       tm_dots("spec_label",
+              title = "Species",
               id = "band_rec",
               palette = "Set2",
               border.col = "white",
               size = 0.125) }
     else({
       species_tmap <- 
-        tm_basemap("CartoDB.VoyagerLabelsUnder") +
+        tm_basemap("CartoDB.VoyagerNoLabels") +
         tm_shape(tmap_sf()) +
         tm_dots("spec_label",
                 id = NULL,
-                col = "salmon",
+                col = "indianred1",
                 border.col = "white",
                 size = 0.125) + 
         tm_text("band_rec",
-                col = "gray30",
-                xmod = 6,
-                shadow = TRUE)
+                col = "gray15",
+                xmod = -7)
+        
     })
     
     tmap_mode("view")
@@ -715,6 +719,8 @@ server <- function(input, output, session) {
     tmap_leaflet(species_tmap)
     
     })
+  
+    
 }
 
 
