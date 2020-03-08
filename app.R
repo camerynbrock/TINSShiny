@@ -265,6 +265,7 @@ nb.cols <- 12
 mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
 
 
+
 ###
 ### Shiny App 
 ###
@@ -282,7 +283,7 @@ ui <- fluidPage(
       br(), br(),
       "This Shiny App displays data collected by the Tahoe Institute for Natural Science (www.tinsweb.org) for long-term bird monitoring of Sierra Nevada songbirds (2010-2019).",
       br(), br(),
-      "Tab 1: Bird Count 2010-2019",
+      "Tab 1: Annual Bird Count",
       br(), br(),
       "Tab 2: Seasonal bird count: Begin by selecting a family on the right. You will then have the option to look at individual species within that family. The graph on top displays the counts standardized by per net per hour. The graph on bottom displays the total number of birds banded.",
       br(), br(),
@@ -295,7 +296,7 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         type = "tabs",
-        tabPanel("Bird Count 2010-2019",
+        tabPanel("Annual Bird Count",
                  br(),
                  fluidRow(
                    column(5,
@@ -334,8 +335,6 @@ ui <- fluidPage(
 
 
 
-
-
 # Server 
 
 server <- function(input, output, session) {
@@ -350,18 +349,39 @@ server <- function(input, output, session) {
       filter(spec_label == input$select_spec)
   })
   
-  total_fam <- reactive({
+  total_fam <- reactive ({
     tins_nethours %>% 
       filter(family_label == input$select_fam_total)
   })
   
-  total_spec <- reactive({
+  total_spec <- reactive ({
     tins_nethours %>% 
       filter(spec_label == input$select_spec_total)
   })
   
+  total_fam_avg <- reactive({
+    tins_nethours %>% 
+      filter(family_label == input$select_fam_total) %>% 
+      group_by(spec_label, year) %>% 
+      summarize(avg_yearly_hour = mean(count_per_hour))
+  })
+  
+  total_spec_avg <- reactive({
+    tins_nethours %>% 
+      filter(spec_label == input$select_spec_total) %>% 
+      group_by(spec_label, year) %>% 
+      summarize(avg_yearly_hour = mean(count_per_hour))
+  })
+  
+  total_all <- reactive({
+    tins_nethours %>% 
+      group_by(spec_label, year) %>% 
+      summarize(avg_yearly_hour = mean(count_per_hour))
+  })
+  
   tins_nethours_all <- reactive({
     tins_nethours})
+
   
   observeEvent(seasonal_fam(),
                {
@@ -490,6 +510,9 @@ server <- function(input, output, session) {
   })
 })
   
+  
+  ########## Total #########
+  
   observeEvent(total_fam(),
                {
                  updateSelectInput(
@@ -498,71 +521,58 @@ server <- function(input, output, session) {
                    choices = c("All", total_fam()$spec_label))
                })
   
-  
-  ##########
-  
   output$total_fam_hour_graph <- renderPlot({
     
     if(input$select_fam_total == "All"){
-      ggplot(tins_nethours_all(), aes(x = week, y = count_per_hour)) + 
+      ggplot(total_all(), aes(x = year, y = avg_yearly_hour)) + 
         geom_jitter(color = "powderblue",
-                    alpha = 0.75,
-                    size = 2,
-                    width = 0.45) +
+                    alpha = 0.7,
+                    width = 0.2,
+                    size = 2) +
         geom_smooth(size = 0.5,
                     color = "gray75",
                     se = FALSE) +
         theme_minimal() + 
-        labs(x = "Week (all years)",
-             y = "Count per net hour",
-             color = "Species") +
-        scale_x_continuous(limits = c(31.5, 42.5),
-                           breaks = c(32, 33, 34, 35, 36, 
-                                      37, 38, 39, 40, 41, 42),
-                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
-                                      "9/13", "9/20", "9/27", "10/4", "10/11",
-                                      "10/18"))}
-    
+        labs(x = "Year",
+             y = "Average count per net hour per species") +
+        scale_x_continuous(limits = c(2009.5, 2019.5),
+                           breaks = seq(2010, 2019, by = 1),
+                           minor_breaks = NULL)
+      }
     else if(input$select_spec_total == "All"){
-      ggplot(total_fam(), aes(x = week, y = count_per_hour)) + 
+      ggplot(total_fam_avg(), aes(x = year, y = avg_yearly_hour)) + 
         geom_jitter(aes(color = spec_label),
-                    alpha = 0.75,
-                    size = 2,
-                    width = 0.45) +
+                    alpha = 0.85,
+                    width = 0.2,
+                    size = 2) +
         geom_smooth(size = 0.5,
                     color = "gray75",
                     se = FALSE) +
         theme_minimal() + 
-        labs(x = "Week (all years)",
-             y = "Count per net hour",
+        labs(x = "Year",
+             y = "Average count per net hour",
              color = "Species") +
         scale_color_manual(values = mycolors) +
-        scale_x_continuous(limits = c(31.5, 42.5),
-                           breaks = c(32, 33, 34, 35, 36, 
-                                      37, 38, 39, 40, 41, 42),
-                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
-                                      "9/13", "9/20", "9/27", "10/4", "10/11",
-                                      "10/18"))}
+        scale_x_continuous(limits = c(2009.5, 2019.5),
+                           breaks = seq(2010, 2019, by = 1),
+                           minor_breaks = NULL) 
+      }
     else({
-      ggplot(total_spec(), aes(x = week, y = count_per_hour)) + 
+      ggplot(total_spec_avg(), aes(x = year, y = avg_yearly_hour)) + 
         geom_jitter(aes(color = spec_label),
-                    alpha = 0.75,
                     size = 2,
-                    width = 0.45) +
+                    width = 0.2) +
         geom_smooth(size = 0.5,
                     color = "gray75",
                     se = FALSE) +
         theme_minimal() + 
-        labs(x = "Week (all years)",
-             y = "Count per net hour",
+        labs(x = "Year",
+             y = "Average count per net hour",
              color = "Species") +
         scale_color_manual(values = "powderblue") +
-        scale_x_continuous(limits = c(31.5, 42.5),
-                           breaks = c(32, 33, 34, 35, 36, 
-                                      37, 38, 39, 40, 41, 42),
-                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
-                                      "9/13", "9/20", "9/27", "10/4", "10/11",
-                                      "10/18"))
+        scale_x_continuous(limits = c(2009.5, 2019.5),
+                           breaks = seq(2010, 2019, by = 1),
+                           minor_breaks = NULL)
       
     })
   }) 
@@ -570,53 +580,44 @@ server <- function(input, output, session) {
   output$total_fam_effort_graph <- renderPlot({
     
     if(input$select_fam_total == "All"){
-      ggplot(tins_nethours_all(), aes(x = week, y = count)) +
+      ggplot(tins_nethours_all(), aes(x = year, y = count)) +
         geom_col(fill = "powderblue",
                  width = 0.75) +
         theme_minimal() + 
-        labs(x = "Week (all years)",
+        labs(x = "Date (year week)",
              y = "Total count",
              fill = "Species") +
         scale_y_continuous(breaks = integer_breaks()) +
-        scale_x_continuous(limits = c(31.5, 42.5),
-                           breaks = c(32, 33, 34, 35, 36, 37, 
-                                      38, 39, 40, 41, 42),
-                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
-                                      "9/13", "9/20", "9/27", "10/4", "10/11",
-                                      "10/18"))}
+        scale_x_continuous(limits = c(2009.5, 2019.5),
+                           breaks = seq(2010, 2019, by = 1),
+                           minor_breaks = NULL) }
     
     else if(input$select_spec_total == "All"){
-      ggplot(total_fam(), aes(x = week, y = count)) +
+      ggplot(total_fam(), aes(x = year, y = count)) +
         geom_col(aes(fill = spec_label),
                  width = 0.75) +
         theme_minimal() + 
-        labs(x = "Week (all years)",
+        labs(x = "Date (year week)",
              y = "Total count",
              fill = "Species") +
         scale_fill_manual(values = mycolors) +
         scale_y_continuous(breaks = integer_breaks()) +
-        scale_x_continuous(limits = c(31.5, 42.5),
-                           breaks = c(32, 33, 34, 35, 36, 37, 
-                                      38, 39, 40, 41, 42),
-                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
-                                      "9/13", "9/20", "9/27", "10/4", "10/11",
-                                      "10/18"))}
+        scale_x_continuous(limits = c(2009.5, 2019.5),
+                           breaks = seq(2010, 2019, by = 1),
+                           minor_breaks = NULL) }
     else({
-      ggplot(total_spec(), aes(x = week, y = count)) +
+      ggplot(total_spec(), aes(x = year, y = count)) +
         geom_col(aes(fill = spec_label),
                  width = 0.75) +
         theme_minimal() + 
-        labs(x = "Week (all years)",
+        labs(x = "Date (year week)",
              y = "Total count",
              fill = "Species") +
         scale_fill_manual(values = "powderblue") +
         scale_y_continuous(breaks = integer_breaks()) +
-        scale_x_continuous(limits = c(31.5, 42.5),
-                           breaks = c(32, 33, 34, 35, 36, 37, 
-                                      38, 39, 40, 41, 42),
-                           labels = c("8/9", "8/16", "8/23", "8/30", "9/6", 
-                                      "9/13", "9/20", "9/27", "10/4", "10/11",
-                                      "10/18"))
+        scale_x_continuous(limits = c(2009.5, 2019.5),
+                           breaks = seq(2010, 2019, by = 1),
+                           minor_breaks = NULL)
     })
 })
 }
