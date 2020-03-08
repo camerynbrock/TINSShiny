@@ -6,7 +6,9 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
 ```
 
 ```{r}
@@ -15,12 +17,14 @@ library(tidyverse)
 library(here)
 library(janitor)
 library(sf)
+library(tmap)
+library(leaflet)
+library(RColorBrewer)
 
 ```
 
 
 ```{r}
-
 recoveries <- read_csv(here::here("RawData", "Recoveries.csv")) %>% 
   clean_names() 
 
@@ -50,6 +54,24 @@ recoveries_tidy <- bind_rows(rec, band) %>%
 sf <- st_as_sf(recoveries_tidy,
                coords = c("lon", "lat"),
                crs = 4326)
+
+```
+
+
+```{r}
+
+species_tmap <- 
+  tm_basemap("OpenStreetMap.Mapnik") +
+  tm_shape(sf) +
+  tm_dots("species",
+          id = "band_rec",
+          palette = "Set2",
+          border.col = "white",
+          size = 0.1) 
+
+tmap_mode("view")
+
+species_tmap
 
 ```
 

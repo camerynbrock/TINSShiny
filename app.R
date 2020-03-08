@@ -12,6 +12,8 @@ library(paletteer)
 library(tsibble)
 library(RColorBrewer)
 library(leaflet)
+library(sf)
+library(tmap)
 
 
 ###
@@ -252,6 +254,47 @@ tins_nethours <- tins_roi %>%
          year_week, week, count, nethours, count_per_hour)
 
 
+
+### 
+### Recoveries Wrangling
+###
+
+recoveries <- read_csv(here::here("RawData", "Recoveries.csv")) %>% 
+  clean_names() 
+
+rec <- recoveries %>% 
+  select(!c(long_band, lat_band, date_banded, location_banded)) %>% 
+  rename("lat" = "lat_rec",
+         "lon" = "long_rec",
+         "location" = "recovery_location_descr",
+         "date" = "date_recovered") %>% 
+  mutate("band_rec" = "recovered") %>% 
+  mutate(date = lubridate::mdy(date)) %>% 
+  select(band_number, species, band_rec, date, age, sex, location, notes, lon, lat)
+
+band <- recoveries %>% 
+  select(!c(long_rec, lat_rec, date_recovered, recovery_location_descr)) %>% 
+  rename("lat" = "lat_band",
+         "lon" = "long_band",
+         "location" = "location_banded",
+         "date" = "date_banded") %>% 
+  mutate("band_rec" = "banded") %>% 
+  mutate(date = lubridate::mdy(date)) %>% 
+  select(band_number, species, band_rec, date, age, sex, location, notes, lon, lat)
+
+recoveries_tidy <- bind_rows(rec, band) %>% 
+  arrange(band_number, date) 
+
+sf <- st_as_sf(recoveries_tidy,
+               coords = c("lon", "lat"),
+               crs = 4326)
+
+
+
+### 
+### Other 
+###
+
 integer_breaks <- function(n = 5, ...) {
   fxn <- function(x) {
     breaks <- floor(pretty(x, n, ...))
@@ -331,11 +374,15 @@ ui <- fluidPage(
                  br(), 
                  plotOutput(outputId = "seasonal_fam_effort_graph")),
         tabPanel("Species"),
-        tabPanel("Band Recoveries")))))
+        tabPanel("Band Recoveries",
+                 br(),
+                 leafletOutput(outputId = "tmap"))))))
 
 
 
-# Server 
+###
+### Server 
+###
 
 server <- function(input, output, session) {
   
@@ -381,6 +428,10 @@ server <- function(input, output, session) {
   
   tins_nethours_all <- reactive({
     tins_nethours})
+  
+  tmap_sf <- reactive({
+    sf
+  })
 
   
   observeEvent(seasonal_fam(),
@@ -620,7 +671,24 @@ server <- function(input, output, session) {
                            minor_breaks = NULL)
     })
 })
+  
+  output$tmap = renderLeaflet({
+    species_tmap <- 
+      tm_basemap("OpenStreetMap.Mapnik") +
+      tm_shape(sf) +
+      tm_dots("species",
+              id = "band_rec",
+              palette = "Set2",
+              border.col = "white",
+              size = 0.1)
+    
+    tmap_mode("view")
+    
+    tmap_leaflet(species_tmap)
+    
+    })
 }
+
 
 shinyApp(ui = ui, server = server)
 
