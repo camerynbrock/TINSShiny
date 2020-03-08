@@ -11,7 +11,7 @@ library(lubridate)
 library(paletteer)
 library(tsibble)
 library(RColorBrewer)
-library(rsconnect)
+library(leaflet)
 
 
 ###
@@ -331,7 +331,7 @@ ui <- fluidPage(
                  br(), 
                  plotOutput(outputId = "seasonal_fam_effort_graph")),
         tabPanel("Species"),
-        tabPanel("Recaptures")))))
+        tabPanel("Band Recoveries")))))
 
 
 

@@ -478,4 +478,3 @@ ggplot(picidae, aes(x = week,
 
 ```
 
-
