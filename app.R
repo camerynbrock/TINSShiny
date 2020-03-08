@@ -268,7 +268,7 @@ rec <- recoveries %>%
          "lon" = "long_rec",
          "location" = "recovery_location_descr",
          "date" = "date_recovered") %>% 
-  mutate("band_rec" = "recovered") %>% 
+  mutate("band_rec" = "Recovered") %>% 
   mutate(date = lubridate::mdy(date)) %>% 
   select(band_number, species, band_rec, date, age, sex, location, notes, lon, lat)
 
@@ -278,7 +278,7 @@ band <- recoveries %>%
          "lon" = "long_band",
          "location" = "location_banded",
          "date" = "date_banded") %>% 
-  mutate("band_rec" = "banded") %>% 
+  mutate("band_rec" = "Banded") %>% 
   mutate(date = lubridate::mdy(date)) %>% 
   select(band_number, species, band_rec, date, age, sex, location, notes, lon, lat)
 
@@ -287,7 +287,12 @@ recoveries_tidy <- bind_rows(rec, band) %>%
 
 sf <- st_as_sf(recoveries_tidy,
                coords = c("lon", "lat"),
-               crs = 4326)
+               crs = 4326) %>%
+  mutate(spec_label = case_when(species == "STJA" ~ "Steller's Jay",
+                                species == "WETA" ~ "Western Tanager",
+                                species == "GWCS" ~ "White-crowned Sparrow (Gambel's)",
+                                species == "AUWA" ~ "Yellow-rumped Warbler (Audubon's)")) %>% 
+  select(band_number, species, spec_label, band_rec, date, age, sex, location, notes)
 
 
 
@@ -308,13 +313,17 @@ nb.cols <- 12
 mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
 
 
-
+#####
 ###
 ### Shiny App 
 ###
+#####
 
-# User interface
-  
+
+###
+### User interface
+###
+
 ui <- fluidPage(
   theme = shinytheme("cerulean"),
   titlePanel("TINS Long-Term Bird Monitoring"),
@@ -342,6 +351,7 @@ ui <- fluidPage(
         tabPanel("Annual Bird Count",
                  br(),
                  fluidRow(
+                   align = "center",
                    column(5,
                           selectInput(
                             inputId = "select_fam_total",
@@ -359,6 +369,7 @@ ui <- fluidPage(
         tabPanel("Seasonal Bird Count",
                  br(),
                  fluidRow(
+                   align = "center",
                    column(5,
                  selectInput(
                    inputId = "select_fam",
@@ -376,7 +387,15 @@ ui <- fluidPage(
         tabPanel("Species"),
         tabPanel("Band Recoveries",
                  br(),
-                 leafletOutput(outputId = "tmap"))))))
+                 fluidRow(
+                   align = "center",
+                 selectInput(
+                   inputId = "select_rec",
+                   label = "Choose a species",
+                   choices = c("All", unique(sf$spec_label)))),
+                 br(),
+                 leafletOutput(outputId = "tmap",
+                               height = 650))))))
 
 
 
@@ -388,59 +407,50 @@ server <- function(input, output, session) {
   
   seasonal_fam <- reactive({
     tins_nethours %>% 
-      filter(family_label == input$select_fam)
-  })
+      filter(family_label == input$select_fam) })
   
   seasonal_spec <- reactive({
     tins_nethours %>% 
-      filter(spec_label == input$select_spec)
-  })
+      filter(spec_label == input$select_spec) })
   
   total_fam <- reactive ({
     tins_nethours %>% 
-      filter(family_label == input$select_fam_total)
-  })
+      filter(family_label == input$select_fam_total) })
   
   total_spec <- reactive ({
     tins_nethours %>% 
-      filter(spec_label == input$select_spec_total)
-  })
+      filter(spec_label == input$select_spec_total) })
   
   total_fam_avg <- reactive({
     tins_nethours %>% 
       filter(family_label == input$select_fam_total) %>% 
       group_by(spec_label, year) %>% 
-      summarize(avg_yearly_hour = mean(count_per_hour))
-  })
+      summarize(avg_yearly_hour = mean(count_per_hour)) })
   
   total_spec_avg <- reactive({
     tins_nethours %>% 
       filter(spec_label == input$select_spec_total) %>% 
       group_by(spec_label, year) %>% 
-      summarize(avg_yearly_hour = mean(count_per_hour))
-  })
+      summarize(avg_yearly_hour = mean(count_per_hour)) })
   
   total_all <- reactive({
     tins_nethours %>% 
       group_by(spec_label, year) %>% 
-      summarize(avg_yearly_hour = mean(count_per_hour))
-  })
+      summarize(avg_yearly_hour = mean(count_per_hour))})
   
   tins_nethours_all <- reactive({
     tins_nethours})
   
   tmap_sf <- reactive({
-    sf
-  })
+    sf %>% 
+      filter(spec_label == input$select_rec)})
 
   
   observeEvent(seasonal_fam(),
-               {
-                 updateSelectInput(
+               { updateSelectInput(
                    session, 
                    input = "select_spec",
-                   choices = c("All", seasonal_fam()$spec_label))
-               })
+                   choices = c("All", seasonal_fam()$spec_label)) })
 
   output$seasonal_fam_hour_graph <- renderPlot({
    
@@ -672,15 +682,33 @@ server <- function(input, output, session) {
     })
 })
   
+  ##### Recoveries
+  
   output$tmap = renderLeaflet({
+    
+    if(input$select_rec == "All"){
     species_tmap <- 
-      tm_basemap("OpenStreetMap.Mapnik") +
+      tm_basemap("CartoDB.VoyagerLabelsUnder") +
       tm_shape(sf) +
-      tm_dots("species",
+      tm_dots("spec_label",
               id = "band_rec",
               palette = "Set2",
               border.col = "white",
-              size = 0.1)
+              size = 0.125) }
+    else({
+      species_tmap <- 
+        tm_basemap("CartoDB.VoyagerLabelsUnder") +
+        tm_shape(tmap_sf()) +
+        tm_dots("spec_label",
+                id = NULL,
+                col = "salmon",
+                border.col = "white",
+                size = 0.125) + 
+        tm_text("band_rec",
+                col = "gray30",
+                xmod = 6,
+                shadow = TRUE)
+    })
     
     tmap_mode("view")
     

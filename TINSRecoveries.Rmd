@@ -53,7 +53,13 @@ recoveries_tidy <- bind_rows(rec, band) %>%
 
 sf <- st_as_sf(recoveries_tidy,
                coords = c("lon", "lat"),
-               crs = 4326)
+               crs = 4326) %>% 
+  mutate(spec_label = case_when(species == "STJA" ~ "Steller's Jay",
+                                species == "WETA" ~ "Western Tanager",
+                                species == "GWCS" ~ "White-crowned Sparrow (Gambel's)",
+                                species == "AUWA" ~ "Yellow-rumped Warbler (Audubon's)")) %>% 
+  select(band_number, species, spec_label, band_rec, date, age, sex, location, notes)
+  
 
 ```
 
