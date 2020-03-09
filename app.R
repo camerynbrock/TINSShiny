@@ -8,12 +8,15 @@ library(shinythemes)
 library(here)
 library(janitor)
 library(lubridate)
-library(paletteer)
 library(tsibble)
-library(RColorBrewer)
 library(leaflet)
 library(sf)
 library(tmap)
+library(RColorBrewer)
+
+library(BiocManager)
+options(repos = BiocManager::repositories())
+# setRepositories(addURLs = c(BioC = "https://bioconductor.org/packages/3.8/bioc"))
 
 
 ###
@@ -255,6 +258,18 @@ tins_nethours <- tins_roi %>%
 
 
 
+###
+### Top 10 Species
+###
+
+spec_top_10 <- tins_nethours %>% 
+  group_by(spec_label) %>% 
+  summarize(count = sum(count)) %>% 
+  arrange(-count) %>% 
+  head(10)
+
+
+
 ### 
 ### Recoveries Wrangling
 ###
@@ -288,11 +303,13 @@ recoveries_tidy <- bind_rows(rec, band) %>%
 sf <- st_as_sf(recoveries_tidy,
                coords = c("lon", "lat"),
                crs = 4326) %>%
-  mutate(spec_label = case_when(species == "STJA" ~ "Steller's Jay",
-                                species == "WETA" ~ "Western Tanager",
-                                species == "GWCS" ~ "White-crowned Sparrow (Gambel's)",
-                                species == "AUWA" ~ "Yellow-rumped Warbler (Audubon's)")) %>% 
-  select(band_number, species, spec_label, band_rec, date, age, sex, location, notes)
+  mutate(spec_label = case_when(
+    species == "STJA" ~ "Steller's Jay",
+    species == "WETA" ~ "Western Tanager",
+    species == "GWCS" ~ "White-crowned Sparrow (Gambel's)",
+    species == "AUWA" ~ "Yellow-rumped Warbler (Audubon's)")) %>% 
+  mutate(year = lubridate::year(date)) %>% 
+  select(band_number, species, spec_label, band_rec, date, year, age, sex, location, notes) 
 
 
 
@@ -336,15 +353,14 @@ ui <- fluidPage(
       br(), br(),
       "Tab 1: Annual Bird Count",
       br(), br(),
-      "Tab 2: Seasonal bird count: Begin by selecting a family on the right. You will then have the option to look at individual species within that family. The graph on top displays the counts standardized by per net per hour. The graph on bottom displays the total number of birds banded.",
+      "Tab 2: Seasonal bird count. Begin by selecting a family on the right. You will then have the option to look at individual species within that family. The graph on top displays the counts standardized by per net per hour. The graph on bottom displays the total number of birds banded.",
       br(), br(),
-      "Tab 3: Species",
+      "Tab 3: Common Species. Here you can learn more about the top ten species caught by TINS from 2010-2019.",
       br(), br(),
-      "Tab 4: Recaptures",
+      "Tab 4: Recaptures. There have been five instances of a bird banded by TINS being found elsewhere. This data is very useful because we can better understand where birds in Tahoe go afterwards. View a map of where each species was  banded then recaptured.",
       br(), br(),
       img(src = "tins-logo.png",
-          width = "80%",
-          height = "80%"),
+          width = "90%"),
       width = 3
      ),
 
@@ -355,12 +371,12 @@ ui <- fluidPage(
                  br(),
                  fluidRow(
                    align = "center",
-                   column(5,
+                   column(6,
                           selectInput(
                             inputId = "select_fam_total",
                             label = "First: Choose a family",
                             choices = c("All", unique(tins_nethours$family_label)))),
-                   column(5,
+                   column(6,
                           selectInput(
                             inputId = "select_spec_total",
                             label = "Second: Choose a species",
@@ -373,12 +389,12 @@ ui <- fluidPage(
                  br(),
                  fluidRow(
                    align = "center",
-                   column(5,
+                   column(6,
                  selectInput(
                    inputId = "select_fam",
                    label = "First: Choose a family",
                    choices = c("All", unique(tins_nethours$family_label)))),
-                 column(5,
+                 column(6,
                  selectInput(
                    inputId = "select_spec",
                    label = "Second: Choose a species",
@@ -387,7 +403,20 @@ ui <- fluidPage(
                  plotOutput(outputId = "seasonal_fam_hour_graph"), 
                  br(), 
                  plotOutput(outputId = "seasonal_fam_effort_graph")),
-        tabPanel("Species"),
+        tabPanel("Common Species",
+                 br(),
+                 fluidRow(
+                   align = "center",
+                   selectInput(
+                     inputId = "select_top_10",
+                     label = "Choose a species",
+                     choices = unique(spec_top_10$spec_label))),
+                 br(),
+                 column(6,
+                        "stats here"),
+                 column(6,
+                        imageOutput(outputId = "spec_image")
+                   )),
         tabPanel("Band Recoveries",
                  br(),
                  fluidRow(
@@ -399,7 +428,6 @@ ui <- fluidPage(
                  br(),
                  leafletOutput(outputId = "tmap",
                                height = 650))))))
-
 
 
 ###
@@ -710,7 +738,12 @@ server <- function(input, output, session) {
                 size = 0.125) + 
         tm_text("band_rec",
                 col = "gray15",
-                xmod = -7)
+                xmod = -7) +
+        tm_shape(tmap_sf()) +
+        tm_text("year",
+              col = "gray15",
+              xmod = -7,
+              ymod = -2)
         
     })
     
@@ -719,6 +752,15 @@ server <- function(input, output, session) {
     tmap_leaflet(species_tmap)
     
     })
+  
+  output$spec_image = renderImage({
+    filename <- normalizePath(file.path('./images',
+                                        paste(input$select_top_10, '.jpg', sep = '')))
+    list(src = filename,
+         width = "90%")},
+    deleteFile = FALSE
+    
+  )
   
     
 }

@@ -478,3 +478,14 @@ ggplot(picidae, aes(x = week,
 
 ```
 
+
+```{r}
+
+spec_top_10 <- tins_nethours %>% 
+  group_by(spec_label) %>% 
+  summarize(count = sum(count)) %>% 
+  arrange(-count) %>% 
+  head(10)
+
+```
+
