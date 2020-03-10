@@ -13,6 +13,7 @@ library(leaflet)
 library(sf)
 library(tmap)
 library(RColorBrewer)
+library(rsconnect)
 
 library(BiocManager)
 options(repos = BiocManager::repositories())
@@ -738,12 +739,13 @@ server <- function(input, output, session) {
                 size = 0.125) + 
         tm_text("band_rec",
                 col = "gray15",
-                xmod = -7) +
+                xmod = -4.5,
+                ymod = 0.9) +
         tm_shape(tmap_sf()) +
         tm_text("year",
               col = "gray15",
-              xmod = -7,
-              ymod = -2)
+              xmod = -4.5,
+              ymod = -0.9)
         
     })
     
