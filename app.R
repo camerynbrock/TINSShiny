@@ -15,8 +15,8 @@ library(tmap)
 library(RColorBrewer)
 library(rsconnect)
 
-library(BiocManager)
-options(repos = BiocManager::repositories())
+# library(BiocManager)
+# options(repos = BiocManager::repositories())
 # setRepositories(addURLs = c(BioC = "https://bioconductor.org/packages/3.8/bioc"))
 
 
