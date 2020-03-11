@@ -894,9 +894,9 @@ server <- function(input, output, session) {
   
   output$photo_credit <- renderText({
     if(spec_top_10_chosen()$spec_label == "Yellow Warbler")
-    {"Photo Credit: "}
+    {"Photo Credit: Joshua Galicki/Audubon Photography Awards"}
     else if(spec_top_10_chosen()$spec_label == "Orange-crowned Warbler")
-    {"Photo Credit:"}
+    {"Photo Credit: Devin Grady/Audubon Photography Awards"}
     else("Photo Credit: Cameryn Brock")
   })
   
