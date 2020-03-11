@@ -1,19 +1,4 @@
-###
-# Attach packages
-###
 
-library(tidyverse)
-library(shiny)
-library(shinythemes)
-library(here)
-library(janitor)
-library(lubridate)
-library(tsibble)
-library(leaflet)
-library(sf)
-library(tmap)
-library(RColorBrewer)
-library(rsconnect)
 
 ###
 ### Data wrangling
@@ -250,7 +235,7 @@ tins_nethours <- tins_roi %>%
   mutate(count_per_hour = count / nethours) %>% 
   mutate(week = lubridate::isoweek(year_week)) %>% 
   select(family, family_label, spec, spec_label, year, 
-         year_week, week, count, nethours, count_per_hour) 
+         year_week, week, count, nethours, count_per_hour)
 
 
 
@@ -341,31 +326,29 @@ ui <- fluidPage(
   titlePanel("Tahoe Instititute for Natural Science Long-Term Bird Monitoring"),
   sidebarLayout(
     sidebarPanel(
-      "This Shiny App displays the Tahoe Institute for Natural Science's long-term bird monitoring of Sierra Nevada songbirds (and some others!). Long-term monitoring is important to detect large-scale ecological patterns, such as in response to climate change. These data shown are from 2010-2019 and collection is ongoing. Visit", tags$a(href="http://www.tinsweb.org/", "tinsweb.org "), "for more information.",
+      "**Work in progress**",
       br(),
+      "Last update: 03-08-2020",
+      br(), br(),
+      "This Shiny App displays data collected by the Tahoe Institute for Natural Science (www.tinsweb.org) for long-term bird monitoring of Sierra Nevada songbirds (2010-2019).",
+      br(), br(),
+      "Tab 1: Annual Bird Count",
+      br(), br(),
+      "Tab 2: Seasonal bird count. Begin by selecting a family on the right. You will then have the option to look at individual species within that family. The graph on top displays the counts standardized by per net per hour. The graph on bottom displays the total number of birds banded.",
+      br(), br(),
+      "Tab 3: Common Species. Here you can learn more about the top ten species caught by TINS from 2010-2019.",
+      br(), br(),
+      "Tab 4: Recaptures. There have been five instances of a bird banded by TINS being found elsewhere. This data is very useful because we can better understand where birds in Tahoe go afterwards. View a map of where each species was  banded then recaptured.",
+      br(), br(),
       img(src = "tins-logo.png",
-          width = "80%"),
-      br(), br(),
-      strong("Tab 1: Annual Bird Count."), 
-      "View count per net hour (standardized; top graph) and total count (bottom graph) annually from 2010-2019. Options are to view all families, a single family, or a single species.",
-      br(), br(),
-      strong("Tab 2: Seasonal bird count."), 
-      "View count per net hour (standardized; top graph) and total count (bottom graph) seasonally with data from 2010-2019. Options are to view all families, a single family, or a single species.",
-      br(), br(),
-      strong("Tab 3: Common Species."), 
-      "Here you can learn more about the top ten species caught by TINS from 2010-2019.",
-      br(), br(),
-      strong("Tab 4: Recaptures."), 
-      "There have been five instances of a bird banded by TINS being found elsewhere. These data are very useful because we can better understand where birds in Tahoe go afterwards. In this tab, you can view a map of where each species was banded then recaptured.",
-      br(), br(),
-      "This Shiny App was created by Cameryn Brock (Bren School of Environmental Science & Management) with data collected and provided by Will Richardson (Tahoe Institute for Natural Science).",
+          width = "90%"),
       width = 3
     ),
     
     mainPanel(
       tabsetPanel(
         type = "tabs",
-        tabPanel("Annual Bird Count", 
+        tabPanel("Annual Bird Count",
                  br(),
                  fluidRow(
                    align = "center",
@@ -379,6 +362,7 @@ ui <- fluidPage(
                             inputId = "select_spec_total",
                             label = "Second: Choose a species",
                             choices = NULL))),
+                 br(),
                  plotOutput(outputId = "total_fam_hour_graph"), 
                  br(), 
                  plotOutput(outputId = "total_fam_effort_graph")),
@@ -396,6 +380,7 @@ ui <- fluidPage(
                             inputId = "select_spec",
                             label = "Second: Choose a species",
                             choices = NULL))),
+                 br(),
                  plotOutput(outputId = "seasonal_fam_hour_graph"), 
                  br(), 
                  plotOutput(outputId = "seasonal_fam_effort_graph")),
@@ -406,27 +391,13 @@ ui <- fluidPage(
                    selectInput(
                      inputId = "select_top_10",
                      label = "Choose a species",
-                     choices = unique(spec_top_10$spec_label)),
+                     choices = unique(spec_top_10$spec_label))),
                  br(),
                  column(6,
-                        br(), br(), br(),
-                        span(textOutput(outputId = "spec_name"), style = "color:#2F99E8;font-weight:bold; font-size:28px"),
-                        br(), 
-                        span(textOutput(outputId = "no_banded"), style = "font-size:24px"),
-                        br(),
-                        span(textOutput(outputId = "spec_family"), style = "font-size:20px"),
-                        span(textOutput(outputId = "spec_habitat"), style = "font-size:20px"),
-                        span(textOutput(outputId = "spec_food"), style = "font-size:20px"),
-                        span(textOutput(outputId = "spec_nest"), style = "font-size:20px"),
-                        span(textOutput(outputId = "spec_behavior"), style = "font-size:20px")
-                       ),
+                        "stats here"),
                  column(6,
-                        imageOutput(outputId = "spec_image"),
-                        br(), br(), br(), br(),
-                        textOutput(outputId = "photo_credit"),
-                        p("Species information acquired from", 
-                          tags$a(href="https://www.birds.cornell.edu/home/", "The Cornell Lab of Ornithology"), ".")
-                 ))),
+                        imageOutput(outputId = "spec_image")
+                 )),
         tabPanel("Band Recoveries",
                  br(),
                  fluidRow(
@@ -479,24 +450,12 @@ server <- function(input, output, session) {
       group_by(spec_label, year) %>% 
       summarize(avg_yearly_hour = mean(count_per_hour))})
   
-  spec_top_10_chosen <- reactive({
-    spec_top_10 %>% 
-      filter(spec_label == input$select_top_10)
-  })
-  
-  spec_top_10_fam <- reactive({
-    tins_nethours %>% 
-      filter(spec_label == input$select_top_10)
-  })
-  
   tins_nethours_all <- reactive({
     tins_nethours})
   
   tmap_sf <- reactive({
     sf %>% 
       filter(spec_label == input$select_rec)})
-  
-
   
   
   observeEvent(seasonal_fam(),
@@ -509,7 +468,7 @@ server <- function(input, output, session) {
     
     if(input$select_fam == "All"){
       ggplot(tins_nethours_all(), aes(x = week, y = count_per_hour)) + 
-        geom_jitter(color = "steelblue2",
+        geom_jitter(color = "powderblue",
                     alpha = 0.75,
                     size = 2,
                     width = 0.45) +
@@ -575,7 +534,7 @@ server <- function(input, output, session) {
     
     if(input$select_fam == "All"){
       ggplot(tins_nethours_all(), aes(x = week, y = count)) +
-        geom_col(fill = "steelblue2",
+        geom_col(fill = "powderblue",
                  width = 0.75) +
         theme_minimal() + 
         labs(x = "Week (all years)",
@@ -639,7 +598,7 @@ server <- function(input, output, session) {
     
     if(input$select_fam_total == "All"){
       ggplot(total_all(), aes(x = year, y = avg_yearly_hour)) + 
-        geom_jitter(color = "steelblue2",
+        geom_jitter(color = "powderblue",
                     alpha = 0.7,
                     width = 0.2,
                     size = 2) +
@@ -683,7 +642,7 @@ server <- function(input, output, session) {
         labs(x = "Year",
              y = "Average count per net hour",
              color = "Species") +
-        scale_color_manual(values = "steelblue2") +
+        scale_color_manual(values = mycolors) +
         scale_x_continuous(limits = c(2009.5, 2019.5),
                            breaks = seq(2010, 2019, by = 1),
                            minor_breaks = NULL)
@@ -695,7 +654,7 @@ server <- function(input, output, session) {
     
     if(input$select_fam_total == "All"){
       ggplot(tins_nethours_all(), aes(x = year, y = count)) +
-        geom_col(fill = "steelblue2",
+        geom_col(fill = "powderblue",
                  width = 0.75) +
         theme_minimal() + 
         labs(x = "Year",
@@ -727,7 +686,7 @@ server <- function(input, output, session) {
         labs(x = "Year",
              y = "Total count",
              fill = "Species") +
-        scale_fill_manual(values = "steelblue2") +
+        scale_fill_manual(values = mycolors) +
         scale_y_continuous(breaks = integer_breaks()) +
         scale_x_continuous(limits = c(2009.5, 2019.5),
                            breaks = seq(2010, 2019, by = 1),
@@ -776,9 +735,6 @@ server <- function(input, output, session) {
     
   })
   
-  ##### Common species
-  
-  
   output$spec_image = renderImage({
     filename <- normalizePath(file.path('./images',
                                         paste(input$select_top_10, '.jpg', sep = '')))
@@ -788,117 +744,6 @@ server <- function(input, output, session) {
     
   )
   
-  output$spec_name <- renderText({
-    spec_top_10_chosen()$spec_label
-  })
-  
-  output$no_banded <- renderText({
-    paste("TINS has banded", spec_top_10_chosen()$count, "individuals!")
-  })
-  
-  output$spec_family <- renderText({
-    paste("Family", unique(spec_top_10_fam()$family_label))
-  })
-  
-  output$spec_habitat <- renderText({
-    if(spec_top_10_chosen()$spec_label == "Yellow-rumped Warbler")
-    {"Habitat: Forests"}
-    else if(spec_top_10_chosen()$spec_label == "Dark-eyed Junco")
-    {"Habitat: Forests"}
-    else if(spec_top_10_chosen()$spec_label == "Orange-crowned Warbler")
-    {"Habitat: Forests"}
-    else if(spec_top_10_chosen()$spec_label == "Song Sparrow")
-    {"Habitat: Open woodlands"}
-    else if(spec_top_10_chosen()$spec_label == "White-crowned Sparrow")
-    {"Habitat: Scrub"}
-    else if(spec_top_10_chosen()$spec_label == "Mountain Chickadee")
-    {"Habitat: Forests"}
-    else if(spec_top_10_chosen()$spec_label == "Yellow Warbler")
-    {"Habitat: Open Woodlands"}
-    else if(spec_top_10_chosen()$spec_label == "Wilson's Warbler")
-    {"Habitat: Scrub"}
-    else if(spec_top_10_chosen()$spec_label == "Lincoln's Sparrow")
-    {"Habitat: Scrub"}
-    else if(spec_top_10_chosen()$spec_label == "Ruby-crowned Kinglet")
-    {"Habitat: Forests"}
-  })
-  
-  output$spec_food <- renderText({
-    if(spec_top_10_chosen()$spec_label == "Yellow-rumped Warbler")
-    {"Food: Insects"}
-    else if(spec_top_10_chosen()$spec_label == "Dark-eyed Junco")
-    {"Food: Seeds"}
-    else if(spec_top_10_chosen()$spec_label == "Orange-crowned Warbler")
-    {"Food: Insects"}
-    else if(spec_top_10_chosen()$spec_label == "Song Sparrow")
-    {"Food: Insects"}
-    else if(spec_top_10_chosen()$spec_label == "White-crowned Sparrow")
-    {"Food: Insects"}
-    else if(spec_top_10_chosen()$spec_label == "Mountain Chickadee")
-    {"Food: Insects"}
-    else if(spec_top_10_chosen()$spec_label == "Yellow Warbler")
-    {"Food: Insects"}
-    else if(spec_top_10_chosen()$spec_label == "Wilson's Warbler")
-    {"Food: Insects"}
-    else if(spec_top_10_chosen()$spec_label == "Lincoln's Sparrow")
-    {"Food: Insects"}
-    else if(spec_top_10_chosen()$spec_label == "Ruby-crowned Kinglet")
-    {"Food: Insects"}
-  })
-  
-  output$spec_nest <- renderText({
-    if(spec_top_10_chosen()$spec_label == "Yellow-rumped Warbler")
-    {"Nesting: Trees"}
-    else if(spec_top_10_chosen()$spec_label == "Dark-eyed Junco")
-    {"Nesting: Ground"}
-    else if(spec_top_10_chosen()$spec_label == "Orange-crowned Warbler")
-    {"Nesting: Ground"}
-    else if(spec_top_10_chosen()$spec_label == "Song Sparrow")
-    {"Nesting: Shrub"}
-    else if(spec_top_10_chosen()$spec_label == "White-crowned Sparrow")
-    {"Nesting: Ground"}
-    else if(spec_top_10_chosen()$spec_label == "Mountain Chickadee")
-    {"Nesting: Cavity"}
-    else if(spec_top_10_chosen()$spec_label == "Yellow Warbler")
-    {"Nesting: Shrub"}
-    else if(spec_top_10_chosen()$spec_label == "Wilson's Warbler")
-    {"Nesting: Ground"}
-    else if(spec_top_10_chosen()$spec_label == "Lincoln's Sparrow")
-    {"Nesting: Ground"}
-    else if(spec_top_10_chosen()$spec_label == "Ruby-crowned Kinglet")
-    {"Nesting: Trees"}
-  })
-  
-  output$spec_behavior <- renderText({
-    if(spec_top_10_chosen()$spec_label == "Yellow-rumped Warbler")
-    {"Behavior: Foliage Gleaner"}
-    else if(spec_top_10_chosen()$spec_label == "Dark-eyed Junco")
-    {"Behavior: Ground Forager"}
-    else if(spec_top_10_chosen()$spec_label == "Orange-crowned Warbler")
-    {"Behavior: Foliage Gleaner"}
-    else if(spec_top_10_chosen()$spec_label == "Song Sparrow")
-    {"Behavior: Ground Forager"}
-    else if(spec_top_10_chosen()$spec_label == "White-crowned Sparrow")
-    {"Behavior: Ground Forager"}
-    else if(spec_top_10_chosen()$spec_label == "Mountain Chickadee")
-    {"Behavior: Foliage Gleaner"}
-    else if(spec_top_10_chosen()$spec_label == "Yellow Warbler")
-    {"Behavior: Foliage Gleaner"}
-    else if(spec_top_10_chosen()$spec_label == "Wilson's Warbler")
-    {"Behavior: Foliage Gleaner"}
-    else if(spec_top_10_chosen()$spec_label == "Lincoln's Sparrow")
-    {"Behavior: Ground Forager"}
-    else if(spec_top_10_chosen()$spec_label == "Ruby-crowned Kinglet")
-    {"Behavior: Foliage Gleaner"}
-  })
-  
-  output$photo_credit <- renderText({
-    if(spec_top_10_chosen()$spec_label == "Yellow Warbler")
-    {"Photo Credit: "}
-    else if(spec_top_10_chosen()$spec_label == "Orange-crowned Warbler")
-    {"Photo Credit:"}
-    else("Photo Credit: Cameryn Brock")
-  })
   
 }
 

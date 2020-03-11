@@ -18,7 +18,6 @@ library(here)
 library(janitor)
 library(lubridate)
 library(kableExtra)
-library(paletteer)
 library(tsibble)
 
 ```
@@ -429,7 +428,6 @@ ggplot(daily_per_hour, aes(x = doy,
   geom_point(aes(color = year),
              size = 3,
              alpha = 0.75) +
-  scale_color_paletteer_c("grDevices::TealRose") + 
   theme_minimal() +
   labs(x = "Day of Year",
        y = "Average individuals per net hour",
@@ -488,4 +486,6 @@ spec_top_10 <- tins_nethours %>%
   head(10)
 
 ```
+
+
 
